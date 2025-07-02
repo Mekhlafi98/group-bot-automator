@@ -4,7 +4,7 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // 👇 Add your GitHub repo name here
-const repoName = "your-repo-name";
+const repoName = "group-bot-automator";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
