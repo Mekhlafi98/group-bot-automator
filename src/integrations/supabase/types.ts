@@ -9,7 +9,196 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      message_filters: {
+        Row: {
+          ai_prompt: string | null
+          created_at: string
+          filter_name: string
+          filter_type: string
+          filter_value: string
+          group_id: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          updated_at: string
+          workflow_id: string | null
+        }
+        Insert: {
+          ai_prompt?: string | null
+          created_at?: string
+          filter_name: string
+          filter_type: string
+          filter_value: string
+          group_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          updated_at?: string
+          workflow_id?: string | null
+        }
+        Update: {
+          ai_prompt?: string | null
+          created_at?: string
+          filter_name?: string
+          filter_type?: string
+          filter_value?: string
+          group_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          updated_at?: string
+          workflow_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_filters_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_filters_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "n8n_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_logs: {
+        Row: {
+          filter_id: string | null
+          group_id: string | null
+          id: string
+          matched_filter_type: string | null
+          matched_filter_value: string | null
+          message_id: number
+          message_text: string | null
+          message_type: string | null
+          processed_at: string
+          sender_id: number
+          sender_username: string | null
+          workflow_id: string | null
+          workflow_response: string | null
+          workflow_triggered: boolean | null
+        }
+        Insert: {
+          filter_id?: string | null
+          group_id?: string | null
+          id?: string
+          matched_filter_type?: string | null
+          matched_filter_value?: string | null
+          message_id: number
+          message_text?: string | null
+          message_type?: string | null
+          processed_at?: string
+          sender_id: number
+          sender_username?: string | null
+          workflow_id?: string | null
+          workflow_response?: string | null
+          workflow_triggered?: boolean | null
+        }
+        Update: {
+          filter_id?: string | null
+          group_id?: string | null
+          id?: string
+          matched_filter_type?: string | null
+          matched_filter_value?: string | null
+          message_id?: number
+          message_text?: string | null
+          message_type?: string | null
+          processed_at?: string
+          sender_id?: number
+          sender_username?: string | null
+          workflow_id?: string | null
+          workflow_response?: string | null
+          workflow_triggered?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_logs_filter_id_fkey"
+            columns: ["filter_id"]
+            isOneToOne: false
+            referencedRelation: "message_filters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "n8n_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      n8n_workflows: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
+      telegram_groups: {
+        Row: {
+          chat_id: number
+          chat_title: string | null
+          chat_type: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          chat_id: number
+          chat_title?: string | null
+          chat_type?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: number
+          chat_title?: string | null
+          chat_type?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
