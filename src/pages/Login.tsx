@@ -57,7 +57,7 @@ export function Login() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-            <CardDescription>Sign in to yourBot management account</CardDescription>
+            <CardDescription>Sign in to your Bot management account</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
