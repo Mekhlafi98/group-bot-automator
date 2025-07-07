@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/systemStatusController');
+const { requireUser } = require('./middleware/auth');
+
+router.use(requireUser);
 
 router.get('/', controller.list);
 router.post('/', controller.create);

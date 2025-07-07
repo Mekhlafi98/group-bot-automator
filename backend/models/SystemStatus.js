@@ -7,6 +7,7 @@ const SystemStatusSchema = new mongoose.Schema({
     status: { type: String, enum: ['operational', 'degraded', 'down'], default: 'operational' },
     lastChecked: { type: Date },
     lastResponseTime: { type: Number },
+    createdBy: { type: String, required: true },
 });
 
 module.exports = mongoose.model('SystemStatus', SystemStatusSchema); 

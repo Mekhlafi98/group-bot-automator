@@ -25,14 +25,15 @@ async function checkStatus(item) {
 }
 
 exports.list = async (req, res) => {
-    const items = await SystemStatus.find();
-    // Optionally check all URLs on list
+    const userId = req.user?.id || req.user?._id || req.user?.email;
+    const items = await SystemStatus.find({ createdBy: userId });
     await Promise.all(items.map(checkStatus));
-    res.json(await SystemStatus.find());
+    res.json(await SystemStatus.find({ createdBy: userId }));
 };
 
 exports.create = async (req, res) => {
-    const item = new SystemStatus(req.body);
+    const userId = req.user?.id || req.user?._id || req.user?.email;
+    const item = new SystemStatus({ ...req.body, createdBy: userId });
     await item.save();
     await checkStatus(item);
     res.json(item);

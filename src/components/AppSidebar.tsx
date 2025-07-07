@@ -114,8 +114,8 @@ export function AppSidebar() {
   const { logout, isAuthenticated, isLoading, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Don't render sidebar if not authenticated or still loading
-  if (!isAuthenticated || isLoading) {
+  // Don't render sidebar if not authenticated, still loading, or user is not set
+  if (!isAuthenticated || isLoading || !user) {
     return null;
   }
 
