@@ -22,6 +22,10 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import Webhooks from "./pages/Webhooks";
 import Settings from './pages/Settings';
+import BulkMessaging from "./pages/BulkMessaging";
+import Notifications from "./pages/Notifications";
+import SystemStatus from './pages/SystemStatus';
+import Alerts from './pages/Alerts';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,6 +112,9 @@ function AppContent() {
                   <Profile />
                 </ProtectedRoute>
               } />
+              <Route path="/messaging" element={<BulkMessaging />} />
+              <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+              <Route path="/system-status" element={<ProtectedRoute><SystemStatus /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

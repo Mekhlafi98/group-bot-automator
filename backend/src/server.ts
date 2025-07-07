@@ -10,6 +10,10 @@ const messageFiltersRoutes = require(path.join(__dirname, '../routes/messageFilt
 const messageLogsRoutes = require(path.join(__dirname, '../routes/messageLogsRoutes.js'));
 const contactsRoutes = require(path.join(__dirname, '../routes/contacts.js'));
 const webhookRoutes = require(path.join(__dirname, '../routes/webhookRoutes.js'));
+const bulkMessagesRoutes = require(path.join(__dirname, '../routes/bulkMessagesRoutes.js'));
+const notificationsRoutes = require(path.join(__dirname, '../routes/notificationsRoutes.js'));
+const actionsRoutes = require(path.join(__dirname, '../routes/actionsRoutes.js'));
+const systemStatusRoutes = require('../routes/systemStatusRoutes');
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -28,6 +32,10 @@ app.use('/api/message-logs', messageLogsRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/tokens', require('../routes/tokenRoutes'));
+app.use('/api/bulk-messages', bulkMessagesRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/actions', actionsRoutes);
+app.use('/api/system-status', systemStatusRoutes);
 
 // In-memory store for webhook info
 let webhookInfo: any = null;

@@ -2,7 +2,7 @@ const MessageFilter = require('../models/MessageFilter');
 const TelegramGroup = require('../models/TelegramGroup');
 const Workflow = require('../models/Workflow');
 
-// Get all message filters for current user
+// Get all Filters for current user
 async function getAllFilters(req, res) {
     try {
         const filters = await MessageFilter.find({

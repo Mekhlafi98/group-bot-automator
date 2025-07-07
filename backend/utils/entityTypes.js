@@ -26,13 +26,13 @@ const getAvailableEntityTypes = () => {
         },
         {
             value: 'message-filter',
-            label: 'Message Filters',
+            label: 'Filters',
             description: 'Trigger for filter operations',
             icon: 'filter'
         },
         {
             value: 'message-log',
-            label: 'Message Logs',
+            label: 'Logs',
             description: 'Trigger for log operations',
             icon: 'history'
         },

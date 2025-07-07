@@ -44,19 +44,19 @@ async function migrateExistingRecords() {
         );
         console.log(`Updated ${workflowsResult.modifiedCount} Workflows`);
 
-        // Update Message Filters
+        // Update Filters
         const messageFiltersResult = await MessageFilter.updateMany(
             { createdBy: { $exists: false } },
             { $set: { createdBy: userId } }
         );
-        console.log(`Updated ${messageFiltersResult.modifiedCount} Message Filters`);
+        console.log(`Updated ${messageFiltersResult.modifiedCount} Filters`);
 
-        // Update Message Logs
+        // Update Logs
         const messageLogsResult = await MessageLog.updateMany(
             { createdBy: { $exists: false } },
             { $set: { createdBy: userId } }
         );
-        console.log(`Updated ${messageLogsResult.modifiedCount} Message Logs`);
+        console.log(`Updated ${messageLogsResult.modifiedCount} Logs`);
 
         // Update Contacts
         const contactsResult = await Contact.updateMany(
@@ -69,8 +69,8 @@ async function migrateExistingRecords() {
         console.log('Summary:');
         console.log(`- Telegram Groups: ${telegramGroupsResult.modifiedCount}`);
         console.log(`- Workflows: ${workflowsResult.modifiedCount}`);
-        console.log(`- Message Filters: ${messageFiltersResult.modifiedCount}`);
-        console.log(`- Message Logs: ${messageLogsResult.modifiedCount}`);
+        console.log(`- Filters: ${messageFiltersResult.modifiedCount}`);
+        console.log(`- Logs: ${messageLogsResult.modifiedCount}`);
         console.log(`- Contacts: ${contactsResult.modifiedCount}`);
 
         if (!defaultUser.email.includes('example.com')) {

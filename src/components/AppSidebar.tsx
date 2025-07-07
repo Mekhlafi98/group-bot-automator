@@ -12,7 +12,9 @@ import {
   User,
   ChevronDown,
   Shield,
-  UserCheck
+  UserCheck,
+  Bell,
+  AlertTriangle
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -56,7 +58,7 @@ const navigation = [
     icon: Workflow,
   },
   {
-    title: "Message Filters",
+    title: "Filters",
     url: "/filters",
     icon: Filter,
   },
@@ -71,7 +73,7 @@ const navigation = [
     icon: Webhook,
   },
   {
-    title: "Message Logs",
+    title: "Logs",
     url: "/logs",
     icon: History,
   },
@@ -79,6 +81,21 @@ const navigation = [
     title: "Settings",
     url: "/settings",
     icon: Settings,
+  },
+  {
+    title: "Messaging",
+    url: "/messaging",
+    icon: MessageSquare,
+  },
+  {
+    title: "Alerts",
+    url: "/alerts",
+    icon: AlertTriangle,
+  },
+  {
+    label: "System Status",
+    to: "/system-status",
+    icon: AlertTriangle,
   },
   // Profile link removed from sidebar - accessible only via user dropdown
   // {
@@ -143,15 +160,15 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.url || item.to || item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
+                      to={item.url || item.to}
+                      end={(item.url || item.to) === "/"}
                       className={getNavCls}
                     >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && <span>{item.title || item.label}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

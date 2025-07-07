@@ -267,7 +267,7 @@ const Filters = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Message Filters</h1>
+          <h1 className="text-3xl font-bold">Filters</h1>
           <p className="text-muted-foreground">
             Manage message filtering rules for your bot
           </p>

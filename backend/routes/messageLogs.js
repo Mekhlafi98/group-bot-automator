@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const MessageLog = require('../models/MessageLog');
 
-// Get all message logs
+// Get all Logs
 router.get('/', async (req, res) => {
     try {
         const logs = await MessageLog.find().sort({ createdAt: -1 }).limit(100);
@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get message logs statistics
+// Get Logs statistics
 router.get('/stats', async (req, res) => {
     try {
         const totalMessages = await MessageLog.countDocuments();

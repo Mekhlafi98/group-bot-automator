@@ -1,8 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Users, Workflow, Filter, MessageSquare, Settings } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Bot, Users, Workflow, Filter, MessageSquare, Settings, CheckCircle, AlertTriangle, XCircle, ArrowRight } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/api/api";
@@ -12,6 +12,13 @@ interface Stats {
   workflows: number;
   filters: number;
   messages: number;
+}
+
+function statusColor(status: string) {
+  if (status === "operational") return "text-green-600";
+  if (status === "degraded") return "text-yellow-600";
+  if (status === "down") return "text-red-600";
+  return "text-muted-foreground";
 }
 
 const Dashboard = () => {
@@ -36,6 +43,14 @@ const Dashboard = () => {
       };
     },
     staleTime: 30000, // Cache for 30 seconds
+  });
+
+  const { data: systemStatus = [], isLoading: statusLoading, error: statusError } = useQuery({
+    queryKey: ["system-status"],
+    queryFn: async () => {
+      const res = await api.get("/api/system-status");
+      return Array.isArray(res.data) ? res.data : [];
+    },
   });
 
   const quickActions = [
@@ -72,7 +87,7 @@ const Dashboard = () => {
   const statCards = [
     { title: "Groups", value: stats?.groups || 0, icon: Users, color: "text-blue-600" },
     { title: "Active Workflows", value: stats?.workflows || 0, icon: Workflow, color: "text-green-600" },
-    { title: "Message Filters", value: stats?.filters || 0, icon: Filter, color: "text-purple-600" },
+    { title: "Filters", value: stats?.filters || 0, icon: Filter, color: "text-purple-600" },
     { title: "Messages Processed", value: stats?.messages || 0, icon: MessageSquare, color: "text-orange-600" }
   ];
 
@@ -156,24 +171,34 @@ const Dashboard = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span>Backend Connection</span>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">Connected</Badge>
+          {/* Dynamic System Status Records */}
+          <div className="mt-2">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold">Health Checks</span>
+              <Link to="/system-status" className="text-sm text-primary flex items-center gap-1 hover:underline">
+                View all <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
-            <div className="flex items-center justify-between">
-              <span>Database</span>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">Ready</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>API Endpoints</span>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">Available</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Telegram Webhook</span>
-              <Badge variant="outline">
-                {stats?.messages > 0 ? "Active" : "Needs Setup"}
-              </Badge>
+            {statusLoading && <div className="text-muted-foreground">Loading system status...</div>}
+            {statusError && <div className="text-red-600">Failed to load system status.</div>}
+            <div className="space-y-2">
+              {systemStatus.slice(0, 3).map((item: any) => (
+                <div key={item._id} className="flex items-center gap-3 p-2 rounded border bg-muted">
+                  {item.status === "operational" && <CheckCircle className="h-5 w-5 text-green-600" />}
+                  {item.status === "degraded" && <AlertTriangle className="h-5 w-5 text-yellow-600" />}
+                  {item.status === "down" && <XCircle className="h-5 w-5 text-red-600" />}
+                  <div className="flex-1 min-w-0">
+                    <div className={"font-medium " + statusColor(item.status)}>{item.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{item.description || item.url}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                    {item.lastChecked ? new Date(item.lastChecked).toLocaleTimeString() : "-"}
+                  </div>
+                </div>
+              ))}
+              {systemStatus.length === 0 && !statusLoading && (
+                <div className="text-muted-foreground">No system status records.</div>
+              )}
             </div>
           </div>
         </CardContent>
