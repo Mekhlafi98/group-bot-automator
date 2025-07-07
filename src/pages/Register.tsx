@@ -70,7 +70,7 @@ export function Register() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-            <CardDescription>Sign up for WhatsApp management platform</CardDescription>
+            <CardDescription>Sign up for Bot management platform</CardDescription>
           </div>
         </CardHeader>
         <CardContent>

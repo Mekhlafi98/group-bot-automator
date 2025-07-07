@@ -13,7 +13,7 @@ const resources = {
 
             // Dashboard
             'dashboard.title': 'WhatsApp Chat Management',
-            'dashboard.welcome': 'Welcome to your WhatsApp management dashboard',
+            'dashboard.welcome': 'Welcome to yourBot management dashboard',
             'dashboard.selectContact': 'Select a contact to start chatting',
 
             // Contacts
