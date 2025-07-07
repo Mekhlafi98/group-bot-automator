@@ -1,190 +1,212 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Filter, Search, Edit, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Plus, Edit, Trash2, Filter, MessageSquare, ToggleLeft, ToggleRight, Search } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/api/api";
 import { useToast } from "@/hooks/use-toast";
 
 interface MessageFilter {
-  id: string;
-  filter_name: string;
-  filter_type: string;
-  filter_value: string;
+  _id: string;
+  groupId: string[];
+  workflowId: string;
+  filterName: string;
+  filterType: string;
+  filterValue: string;
+  isActive: boolean;
   priority: number;
-  ai_prompt?: string;
-  is_active: boolean;
-  created_at: string;
-  telegram_groups: {
-    id: string;
-    chat_title: string;
-  };
-  n8n_workflows: {
-    id: string;
-    name: string;
-  };
+  aiPrompt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface TelegramGroup {
-  id: string;
-  chat_title: string;
+  _id: string;
+  chatId: string;
+  title: string;
+  isActive: boolean;
 }
 
-interface N8nWorkflow {
-  id: string;
+interface Workflow {
+  _id: string;
   name: string;
+  workflowId: string;
+  description: string;
+  isActive: boolean;
 }
 
 const Filters = () => {
-  const [filters, setFilters] = useState<MessageFilter[]>([]);
-  const [groups, setGroups] = useState<TelegramGroup[]>([]);
-  const [workflows, setWorkflows] = useState<N8nWorkflow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<MessageFilter | null>(null);
   const [formData, setFormData] = useState({
-    filter_name: "",
-    filter_type: "keyword",
-    filter_value: "",
+    groupId: [] as string[],
+    workflowId: "",
+    filterName: "",
+    filterType: "keyword",
+    filterValue: "",
     priority: 0,
-    ai_prompt: "",
-    group_id: "",
-    workflow_id: ""
+    aiPrompt: "",
+    isActive: true
   });
+  const [openGroupPopover, setOpenGroupPopover] = useState(false);
+  const [openEditGroupPopover, setOpenEditGroupPopover] = useState(false);
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const filterTypes = [
-    { value: "keyword", label: "Keyword Match" },
-    { value: "regex", label: "Regex Pattern" },
-    { value: "message_type", label: "Message Type" },
-    { value: "ai_classification", label: "AI Classification" }
-  ];
-
-  const messageTypes = [
-    { value: "text", label: "Text" },
-    { value: "photo", label: "Photo" },
-    { value: "document", label: "Document" },
-    { value: "sticker", label: "Sticker" }
-  ];
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      const [filtersRes, groupsRes, workflowsRes] = await Promise.all([
-        supabase
-          .from('message_filters')
-          .select(`
-            *,
-            telegram_groups (id, chat_title),
-            n8n_workflows (id, name)
-          `)
-          .order('priority', { ascending: false }),
-        supabase
-          .from('telegram_groups')
-          .select('id, chat_title')
-          .eq('is_active', true),
-        supabase
-          .from('n8n_workflows')
-          .select('id, name')
-          .eq('is_active', true)
-      ]);
-
-      if (filtersRes.error) throw filtersRes.error;
-      if (groupsRes.error) throw groupsRes.error;
-      if (workflowsRes.error) throw workflowsRes.error;
-
-      setFilters(filtersRes.data || []);
-      setGroups(groupsRes.data || []);
-      setWorkflows(workflowsRes.data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+  // Fetch filters
+  const { data: filters = [], isLoading, error } = useQuery({
+    queryKey: ['message-filters'],
+    queryFn: async (): Promise<MessageFilter[]> => {
+      const response = await api.get('/api/message-filters');
+      return response.data;
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // Fetch groups for autocomplete
+  const { data: groups = [], error: groupsError, isLoading: groupsLoading } = useQuery({
+    queryKey: ['telegram-groups'],
+    queryFn: async (): Promise<TelegramGroup[]> => {
+      const response = await api.get('/api/telegram-groups');
+      return response.data;
+    },
+    onError: (error) => {
+      console.error('Error fetching groups:', error);
+    }
+  });
 
-  const handleSubmit = async () => {
-    try {
-      if (!formData.filter_name || !formData.filter_value || !formData.group_id || !formData.workflow_id) {
-        toast({
-          title: "Error",
-          description: "Please fill in all required fields",
-          variant: "destructive"
-        });
-        return;
-      }
+  // Fetch workflows for autocomplete
+  const { data: workflows = [], isLoading: workflowsLoading, error: workflowsError } = useQuery({
+    queryKey: ['workflows'],
+    queryFn: async (): Promise<Workflow[]> => {
+      const response = await api.get('/api/workflows');
+      return response.data;
+    }
+  });
 
-      const submitData = {
-        filter_name: formData.filter_name,
-        filter_type: formData.filter_type,
-        filter_value: formData.filter_value,
-        priority: formData.priority,
-        group_id: formData.group_id,
-        workflow_id: formData.workflow_id,
-        ...(formData.filter_type === 'ai_classification' && { ai_prompt: formData.ai_prompt })
-      };
+  // Filter filters based on active status and search query
+  const filteredFilters = (showActiveOnly ? filters.filter(filter => filter.isActive) : filters)
+    .filter(filter =>
+      searchQuery === "" ||
+      filter.filterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      filter.filterType.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      filter.filterValue.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-      if (editingFilter) {
-        const { error } = await supabase
-          .from('message_filters')
-          .update(submitData)
-          .eq('id', editingFilter.id);
-
-        if (error) throw error;
-
-        toast({
-          title: "Success",
-          description: "Filter updated successfully"
-        });
-      } else {
-        const { error } = await supabase
-          .from('message_filters')
-          .insert({
-            ...submitData,
-            is_active: true
-          });
-
-        if (error) throw error;
-
-        toast({
-          title: "Success",
-          description: "Filter created successfully"
-        });
-      }
-
-      setIsDialogOpen(false);
-      setEditingFilter(null);
-      setFormData({
-        filter_name: "",
-        filter_type: "keyword",
-        filter_value: "",
-        priority: 0,
-        ai_prompt: "",
-        group_id: "",
-        workflow_id: ""
+  // Create filter mutation
+  const createFilterMutation = useMutation({
+    mutationFn: async (data: Omit<MessageFilter, '_id' | 'createdAt' | 'updatedAt'>) => {
+      const response = await api.post('/api/message-filters', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['message-filters'] });
+      setIsCreateDialogOpen(false);
+      setFormData({ groupId: [], workflowId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true });
+      toast({
+        title: "Success",
+        description: "Filter created successfully",
+        variant: "default"
       });
-      fetchData();
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.response?.data?.message || "Failed to create filter",
         variant: "destructive"
+      });
+    }
+  });
+
+  // Update filter mutation
+  const updateFilterMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<MessageFilter> }) => {
+      const response = await api.put(`/api/message-filters/${id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['message-filters'] });
+      setEditingFilter(null);
+      setFormData({ groupId: [], workflowId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true });
+      toast({
+        title: "Success",
+        description: "Filter updated successfully",
+        variant: "default"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update filter",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Delete filter mutation
+  const deleteFilterMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/api/message-filters/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['message-filters'] });
+      toast({
+        title: "Success",
+        description: "Filter deleted successfully",
+        variant: "default"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete filter",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Toggle filter status mutation
+  const toggleFilterMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const response = await api.put(`/api/message-filters/${id}`, { isActive });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['message-filters'] });
+      toast({
+        title: "Success",
+        description: "Filter status updated",
+        variant: "default"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update filter status",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingFilter) {
+      updateFilterMutation.mutate({ id: editingFilter._id, data: formData });
+    } else {
+      createFilterMutation.mutate({
+        ...formData,
+        priority: parseInt(formData.priority.toString()) || 0
       });
     }
   };
@@ -192,74 +214,37 @@ const Filters = () => {
   const handleEdit = (filter: MessageFilter) => {
     setEditingFilter(filter);
     setFormData({
-      filter_name: filter.filter_name,
-      filter_type: filter.filter_type,
-      filter_value: filter.filter_value,
+      groupId: filter.groupId,
+      workflowId: filter.workflowId,
+      filterName: filter.filterName,
+      filterType: filter.filterType,
+      filterValue: filter.filterValue,
       priority: filter.priority,
-      ai_prompt: filter.ai_prompt || "",
-      group_id: filter.telegram_groups.id,
-      workflow_id: filter.n8n_workflows.id
+      aiPrompt: filter.aiPrompt || "",
+      isActive: filter.isActive
     });
-    setIsDialogOpen(true);
   };
 
-  const handleDelete = async (filterId: string) => {
-    if (!confirm("Are you sure you want to delete this filter?")) return;
-
-    try {
-      const { error } = await supabase
-        .from('message_filters')
-        .delete()
-        .eq('id', filterId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Filter deleted successfully"
-      });
-
-      fetchData();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+  const handleDelete = (id: string) => {
+    deleteFilterMutation.mutate(id);
   };
 
-  const toggleFilterStatus = async (filterId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('message_filters')
-        .update({ is_active: !currentStatus })
-        .eq('id', filterId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: `Filter ${!currentStatus ? 'activated' : 'deactivated'}`
-      });
-
-      fetchData();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+  const handleToggleStatus = (id: string, currentStatus: boolean) => {
+    toggleFilterMutation.mutate({ id, isActive: !currentStatus });
   };
 
-  const filteredFilters = filters.filter(filter =>
-    filter.filter_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    filter.filter_value.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    filter.telegram_groups.chat_title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getFilterTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      keyword: "Keyword",
+      regex: "Regex",
+      sender_role: "Sender Role",
+      message_type: "Message Type",
+      ai_classification: "AI Classification"
+    };
+    return labels[type] || type;
+  };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -267,37 +252,41 @@ const Filters = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-2">Failed to load filters</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Filter className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold">Message Filters</h1>
-            <p className="text-muted-foreground">
-              Create rules to trigger workflows based on message content
-            </p>
+        <div>
+          <h1 className="text-3xl font-bold">Message Filters</h1>
+          <p className="text-muted-foreground">
+            Manage message filtering rules for your bot
+          </p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showActiveOnly"
+              checked={showActiveOnly}
+              onChange={(e) => setShowActiveOnly(e.target.checked)}
+              className="rounded"
+            />
+            <Label htmlFor="showActiveOnly" className="text-sm">
+              Show Active Only
+            </Label>
           </div>
         </div>
-
-        <Dialog 
-          open={isDialogOpen} 
-          onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) {
-              setEditingFilter(null);
-              setFormData({
-                filter_name: "",
-                filter_type: "keyword",
-                filter_value: "",
-                priority: 0,
-                ai_prompt: "",
-                group_id: "",
-                workflow_id: ""
-              });
-            }
-          }}
-        >
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -306,252 +295,485 @@ const Filters = () => {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>
-                {editingFilter ? "Edit Filter" : "Create Message Filter"}
-              </DialogTitle>
+              <DialogTitle>Create Message Filter</DialogTitle>
               <DialogDescription>
-                Configure a filter to automatically trigger workflows when messages match your criteria.
+                Configure a new message filter for automated processing
               </DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="filter_name">Filter Name *</Label>
-                  <Input
-                    id="filter_name"
-                    placeholder="My Filter Rule"
-                    value={formData.filter_name}
-                    onChange={(e) => setFormData({ ...formData, filter_name: e.target.value })}
-                  />
-                </div>
 
-                <div>
-                  <Label htmlFor="group_id">Telegram Group *</Label>
-                  <Select value={formData.group_id} onValueChange={(value) => setFormData({ ...formData, group_id: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select group" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groups.map((group) => (
-                        <SelectItem key={group.id} value={group.id}>
-                          {group.chat_title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="workflow_id">Target Workflow *</Label>
-                  <Select value={formData.workflow_id} onValueChange={(value) => setFormData({ ...formData, workflow_id: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select workflow" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {workflows.map((workflow) => (
-                        <SelectItem key={workflow.id} value={workflow.id}>
-                          {workflow.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="priority">Priority</Label>
-                  <Input
-                    id="priority"
-                    type="number"
-                    placeholder="0"
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-                  />
-                  <p className="text-sm text-muted-foreground">Higher numbers = higher priority</p>
-                </div>
+            {/* Show errors if groups or workflows failed to load */}
+            {(groupsError || workflowsError) && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+                <p className="text-red-800 text-sm font-medium">Data Loading Issues:</p>
+                {groupsError && (
+                  <p className="text-red-700 text-sm mt-1">• Failed to load groups</p>
+                )}
+                {workflowsError && (
+                  <p className="text-red-700 text-sm mt-1">• Failed to load workflows</p>
+                )}
+                <p className="text-red-600 text-xs mt-2">Please refresh the page or check your connection.</p>
               </div>
+            )}
 
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="filter_type">Filter Type *</Label>
-                  <Select value={formData.filter_type} onValueChange={(value) => setFormData({ ...formData, filter_type: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filterTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="filter_value">
-                    {formData.filter_type === 'keyword' && 'Keyword *'}
-                    {formData.filter_type === 'regex' && 'Regex Pattern *'}
-                    {formData.filter_type === 'message_type' && 'Message Type *'}
-                    {formData.filter_type === 'ai_classification' && 'Classification Label *'}
-                  </Label>
-                  {formData.filter_type === 'message_type' ? (
-                    <Select value={formData.filter_value} onValueChange={(value) => setFormData({ ...formData, filter_value: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select message type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {messageTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      id="filter_value"
-                      placeholder={
-                        formData.filter_type === 'keyword' ? 'help' :
-                        formData.filter_type === 'regex' ? '\\b(urgent|emergency)\\b' :
-                        formData.filter_type === 'ai_classification' ? 'support_request' : ''
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="groupId">Groups</Label>
+                <Popover open={openGroupPopover} onOpenChange={setOpenGroupPopover}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openGroupPopover}
+                      className="w-full justify-between"
+                    >
+                      {formData.groupId.length > 0
+                        ? `${formData.groupId.length} group(s) selected`
+                        : "Select groups..."
                       }
-                      value={formData.filter_value}
-                      onChange={(e) => setFormData({ ...formData, filter_value: e.target.value })}
-                    />
-                  )}
-                </div>
-
-                {formData.filter_type === 'ai_classification' && (
-                  <div>
-                    <Label htmlFor="ai_prompt">AI Prompt</Label>
-                    <Textarea
-                      id="ai_prompt"
-                      placeholder="Classify this message as a support request if it contains questions about..."
-                      value={formData.ai_prompt}
-                      onChange={(e) => setFormData({ ...formData, ai_prompt: e.target.value })}
-                      rows={3}
-                    />
-                    <p className="text-sm text-muted-foreground">Optional: Custom prompt for AI classification</p>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search groups..." />
+                      <CommandList>
+                        <CommandEmpty>No groups found.</CommandEmpty>
+                        <CommandGroup>
+                          {groups.map((group) => (
+                            <CommandItem
+                              key={group._id}
+                              value={group.title}
+                              onSelect={() => {
+                                const isSelected = formData.groupId.includes(group._id);
+                                const newGroupIds = isSelected
+                                  ? formData.groupId.filter(id => id !== group._id)
+                                  : [...formData.groupId, group._id];
+                                setFormData({ ...formData, groupId: newGroupIds });
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.groupId.includes(group._id) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {group.title}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {formData.groupId.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {formData.groupId.map((groupId) => {
+                      const group = groups.find(g => g._id === groupId);
+                      return group ? (
+                        <Badge key={groupId} variant="secondary" className="text-xs">
+                          {group.title}
+                          <X
+                            className="ml-1 h-3 w-3 cursor-pointer"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                groupId: formData.groupId.filter(id => id !== groupId)
+                              });
+                            }}
+                          />
+                        </Badge>
+                      ) : null;
+                    })}
                   </div>
                 )}
               </div>
-
-              <div className="col-span-2">
-                <Button onClick={handleSubmit} className="w-full">
-                  {editingFilter ? "Update Filter" : "Create Filter"}
-                </Button>
+              <div>
+                <Label htmlFor="workflowId">Workflow ID</Label>
+                <Select
+                  id="workflowId"
+                  value={formData.workflowId}
+                  onValueChange={(value) => setFormData({ ...formData, workflowId: value })}
+                  placeholder="Select a workflow"
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a workflow" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workflows.map((workflow) => (
+                      <SelectItem key={workflow._id} value={workflow._id}>
+                        {workflow.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+              <div>
+                <Label htmlFor="filterName">Filter Name</Label>
+                <Input
+                  id="filterName"
+                  value={formData.filterName}
+                  onChange={(e) => setFormData({ ...formData, filterName: e.target.value })}
+                  placeholder="e.g., Spam Filter"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="filterType">Filter Type</Label>
+                <select
+                  id="filterType"
+                  value={formData.filterType}
+                  onChange={(e) => setFormData({ ...formData, filterType: e.target.value })}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="keyword">Keyword</option>
+                  <option value="regex">Regex</option>
+                  <option value="sender_role">Sender Role</option>
+                  <option value="message_type">Message Type</option>
+                  <option value="ai_classification">AI Classification</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="filterValue">Filter Value</Label>
+                <Input
+                  id="filterValue"
+                  value={formData.filterValue}
+                  onChange={(e) => setFormData({ ...formData, filterValue: e.target.value })}
+                  placeholder="e.g., spam, advertisement"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="priority">Priority</Label>
+                <Input
+                  id="priority"
+                  type="number"
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <Label htmlFor="aiPrompt">AI Prompt (Optional)</Label>
+                <Input
+                  id="aiPrompt"
+                  value={formData.aiPrompt}
+                  onChange={(e) => setFormData({ ...formData, aiPrompt: e.target.value })}
+                  placeholder="AI prompt for classification"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createFilterMutation.isPending}>
+                  {createFilterMutation.isPending ? "Creating..." : "Create Filter"}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Active Filters</CardTitle>
+      {/* Search Bar */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search filters by name, type, or value..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredFilters.map((filter) => (
+          <Card key={filter._id}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{filter.filterName}</CardTitle>
+                <Badge variant={filter.isActive ? "default" : "secondary"}>
+                  {filter.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
               <CardDescription>
-                {filters.length} filter{filters.length !== 1 ? 's' : ''} configured
+                {getFilterTypeLabel(filter.filterType)}: "{filter.filterValue}"
               </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{getFilterTypeLabel(filter.filterType)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-mono">{filter.filterValue}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Workflow: </span>
+                  {(() => {
+                    const workflow = workflows.find(w => w._id === filter.workflowId);
+                    return workflow ? (
+                      <Badge variant="outline" className="text-xs">
+                        {workflow.name}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Unknown Workflow</span>
+                    );
+                  })()}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Priority: {filter.priority}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Groups: </span>
+                  <div className="flex flex-wrap gap-1">
+                    {filter.groupId.length > 0 ? (
+                      filter.groupId.map((groupId) => {
+                        const group = groups.find(g => g._id === groupId);
+                        return group ? (
+                          <Badge key={groupId} variant="outline" className="text-xs">
+                            {group.title}
+                          </Badge>
+                        ) : (
+                          <Badge key={groupId} variant="outline" className="text-xs text-muted-foreground">
+                            Unknown Group
+                          </Badge>
+                        );
+                      })
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No groups assigned</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleToggleStatus(filter._id, filter.isActive)}
+                    disabled={toggleFilterMutation.isPending}
+                  >
+                    {filter.isActive ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4" />}
+                    {filter.isActive ? "Disable" : "Enable"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(filter)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="text-red-600">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Filter</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{filter.filterName}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(filter._id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingFilter} onOpenChange={() => setEditingFilter(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Filter</DialogTitle>
+            <DialogDescription>
+              Update the filter information
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-groupId">Groups</Label>
+              <Popover open={openEditGroupPopover} onOpenChange={setOpenEditGroupPopover}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openEditGroupPopover}
+                    className="w-full justify-between"
+                  >
+                    {formData.groupId.length > 0
+                      ? `${formData.groupId.length} group(s) selected`
+                      : "Select groups..."
+                    }
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search groups..." />
+                    <CommandList>
+                      <CommandEmpty>No groups found.</CommandEmpty>
+                      <CommandGroup>
+                        {groups.map((group) => (
+                          <CommandItem
+                            key={group._id}
+                            value={group.title}
+                            onSelect={() => {
+                              const isSelected = formData.groupId.includes(group._id);
+                              const newGroupIds = isSelected
+                                ? formData.groupId.filter(id => id !== group._id)
+                                : [...formData.groupId, group._id];
+                              setFormData({ ...formData, groupId: newGroupIds });
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.groupId.includes(group._id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {group.title}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {formData.groupId.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {formData.groupId.map((groupId) => {
+                    const group = groups.find(g => g._id === groupId);
+                    return group ? (
+                      <Badge key={groupId} variant="secondary" className="text-xs">
+                        {group.title}
+                        <X
+                          className="ml-1 h-3 w-3 cursor-pointer"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              groupId: formData.groupId.filter(id => id !== groupId)
+                            });
+                          }}
+                        />
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
-            <div className="flex items-center space-x-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <Label htmlFor="edit-workflowId">Workflow ID</Label>
+              <Select
+                id="edit-workflowId"
+                value={formData.workflowId}
+                onValueChange={(value) => setFormData({ ...formData, workflowId: value })}
+                placeholder="Select a workflow"
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a workflow" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workflows.map((workflow) => (
+                    <SelectItem key={workflow._id} value={workflow._id}>
+                      {workflow.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-filterName">Filter Name</Label>
               <Input
-                placeholder="Search filters..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
+                id="edit-filterName"
+                value={formData.filterName}
+                onChange={(e) => setFormData({ ...formData, filterName: e.target.value })}
+                placeholder="e.g., Spam Filter"
+                required
               />
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead>Group</TableHead>
-                  <TableHead>Workflow</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredFilters.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <Filter className="h-8 w-8 text-muted-foreground" />
-                        <p className="text-muted-foreground">No filters found</p>
-                        {searchTerm && (
-                          <Button variant="outline" onClick={() => setSearchTerm("")}>
-                            Clear search
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredFilters.map((filter) => (
-                    <TableRow key={filter.id}>
-                      <TableCell className="font-medium">{filter.filter_name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {filter.filter_type.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm max-w-xs truncate">
-                        {filter.filter_value}
-                      </TableCell>
-                      <TableCell>{filter.telegram_groups.chat_title}</TableCell>
-                      <TableCell>{filter.n8n_workflows.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{filter.priority}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={filter.is_active ? "default" : "secondary"}>
-                          {filter.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(filter)}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleFilterStatus(filter.id, filter.is_active)}
-                          >
-                            {filter.is_active ? "Deactivate" : "Activate"}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(filter.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+            <div>
+              <Label htmlFor="edit-filterType">Filter Type</Label>
+              <select
+                id="edit-filterType"
+                value={formData.filterType}
+                onChange={(e) => setFormData({ ...formData, filterType: e.target.value })}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="keyword">Keyword</option>
+                <option value="regex">Regex</option>
+                <option value="sender_role">Sender Role</option>
+                <option value="message_type">Message Type</option>
+                <option value="ai_classification">AI Classification</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="edit-filterValue">Filter Value</Label>
+              <Input
+                id="edit-filterValue"
+                value={formData.filterValue}
+                onChange={(e) => setFormData({ ...formData, filterValue: e.target.value })}
+                placeholder="e.g., spam, advertisement"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-priority">Priority</Label>
+              <Input
+                id="edit-priority"
+                type="number"
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-aiPrompt">AI Prompt (Optional)</Label>
+              <Input
+                id="edit-aiPrompt"
+                value={formData.aiPrompt}
+                onChange={(e) => setFormData({ ...formData, aiPrompt: e.target.value })}
+                placeholder="AI prompt for classification"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                className="rounded"
+              />
+              <Label htmlFor="edit-isActive">Active</Label>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingFilter(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateFilterMutation.isPending}>
+                {updateFilterMutation.isPending ? "Updating..." : "Update Filter"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

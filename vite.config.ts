@@ -4,11 +4,13 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // 👇 Add your GitHub repo name here
-const repoName = "group-bot-automator";
+// const repoName = "group-bot-automator" || "";
+const repoName = "";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: `/${repoName}/`, // 👈 This is the key change
+  // base: `/${repoName}/`, // 👈 This is the key change
+  base: '', // 👈 This is the key change
   server: {
     host: "::",
     port: 8080,

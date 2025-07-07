@@ -1,131 +1,184 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Users, MoreHorizontal, Search } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Plus, Edit, Trash2, Users, MessageSquare, User, Search } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/api/api";
 import { useToast } from "@/hooks/use-toast";
 
+interface Contact {
+  _id: string;
+  name: string;
+  number: string;
+  isActive: boolean;
+  isBlocked: boolean;
+}
+
 interface TelegramGroup {
-  id: string;
-  chat_id: number;
-  chat_title: string;
-  chat_type: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  _id: string;
+  chatId: string;
+  title: string;
+  type: string;
+  isActive: boolean;
+  contacts?: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 const Groups = () => {
-  const [groups, setGroups] = useState<TelegramGroup[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newGroup, setNewGroup] = useState({
-    chat_id: "",
-    chat_title: "",
-    chat_type: "group"
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<TelegramGroup | null>(null);
+  const [formData, setFormData] = useState({
+    chatId: "",
+    title: "",
+    type: "group",
+    isActive: true,
+    contacts: [] as string[]
   });
+  const [openContactsPopover, setOpenContactsPopover] = useState(false);
+  const [openEditContactsPopover, setOpenEditContactsPopover] = useState(false);
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchGroups = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('telegram_groups')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setGroups(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+  // Fetch groups
+  const { data: groups = [], isLoading, error } = useQuery({
+    queryKey: ['telegram-groups'],
+    queryFn: async (): Promise<TelegramGroup[]> => {
+      const response = await api.get('/api/telegram-groups');
+      return response.data;
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchGroups();
-  }, []);
+  // Fetch contacts for multi-select
+  const { data: contactsData, isLoading: contactsLoading, error: contactsError } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: async (): Promise<{ contacts: Contact[]; pagination: any }> => {
+      const response = await api.get('/api/contacts');
+      return response.data;
+    }
+  });
 
-  const handleAddGroup = async () => {
-    try {
-      if (!newGroup.chat_id || !newGroup.chat_title) {
-        toast({
-          title: "Error",
-          description: "Please fill in all required fields",
-          variant: "destructive"
-        });
-        return;
-      }
+  // Extract contacts array from the response
+  const contacts = contactsData?.contacts || [];
 
-      const { error } = await supabase
-        .from('telegram_groups')
-        .insert({
-          chat_id: parseInt(newGroup.chat_id),
-          chat_title: newGroup.chat_title,
-          chat_type: newGroup.chat_type,
-          is_active: true
-        });
+  // Filter groups based on active status and search query
+  const filteredGroups = (showActiveOnly ? groups.filter(group => group.isActive) : groups)
+    .filter(group =>
+      searchQuery === "" ||
+      group.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      group.chatId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      group.type.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-      if (error) throw error;
-
+  // Create group mutation
+  const createGroupMutation = useMutation({
+    mutationFn: async (data: Omit<TelegramGroup, '_id' | 'createdAt' | 'updatedAt'>) => {
+      const response = await api.post('/api/telegram-groups', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['telegram-groups'] });
+      setIsCreateDialogOpen(false);
+      setFormData({ chatId: "", title: "", type: "group", isActive: true, contacts: [] });
       toast({
         title: "Success",
-        description: "Group added successfully"
+        description: "Group created successfully",
+        variant: "default"
       });
-
-      setIsDialogOpen(false);
-      setNewGroup({ chat_id: "", chat_title: "", chat_type: "group" });
-      fetchGroups();
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.response?.data?.message || "Failed to create group",
         variant: "destructive"
       });
     }
-  };
+  });
 
-  const toggleGroupStatus = async (groupId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('telegram_groups')
-        .update({ is_active: !currentStatus })
-        .eq('id', groupId);
-
-      if (error) throw error;
-
+  // Update group mutation
+  const updateGroupMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<TelegramGroup> }) => {
+      const response = await api.put(`/api/telegram-groups/${id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['telegram-groups'] });
+      setEditingGroup(null);
+      setFormData({ chatId: "", title: "", type: "group", isActive: true, contacts: [] });
       toast({
         title: "Success",
-        description: `Group ${!currentStatus ? 'activated' : 'deactivated'}`
+        description: "Group updated successfully",
+        variant: "default"
       });
-
-      fetchGroups();
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.response?.data?.message || "Failed to update group",
         variant: "destructive"
       });
     }
+  });
+
+  // Delete group mutation
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/api/telegram-groups/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['telegram-groups'] });
+      toast({
+        title: "Success",
+        description: "Group deleted successfully",
+        variant: "default"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete group",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingGroup) {
+      updateGroupMutation.mutate({ id: editingGroup._id, data: formData });
+    } else {
+      createGroupMutation.mutate(formData);
+    }
   };
 
-  const filteredGroups = groups.filter(group =>
-    group.chat_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    group.chat_id.toString().includes(searchTerm)
-  );
+  const handleEdit = (group: TelegramGroup) => {
+    setEditingGroup(group);
+    setFormData({
+      chatId: group.chatId,
+      title: group.title,
+      type: group.type,
+      isActive: group.isActive,
+      contacts: group.contacts || []
+    });
+  };
 
-  if (loading) {
+  const handleDelete = (id: string) => {
+    deleteGroupMutation.mutate(id);
+  };
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -133,20 +186,47 @@ const Groups = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-2">Failed to load groups</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold">Telegram Groups</h1>
-            <p className="text-muted-foreground">
-              Manage connected Telegram groups and channels
-            </p>
+        <div>
+          <h1 className="text-3xl font-bold">Groups</h1>
+          <p className="text-muted-foreground">
+            Manage your groups and channels
+          </p>
+          <div className="flex items-center space-x-2 mt-1">
+            <Badge variant="secondary" className="text-xs">
+              <User className="h-3 w-3 mr-1" />
+              Your Groups Only
+            </Badge>
           </div>
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="showActiveOnly"
+              checked={showActiveOnly}
+              onChange={(e) => setShowActiveOnly(e.target.checked)}
+              className="rounded"
+            />
+            <Label htmlFor="showActiveOnly" className="text-sm">
+              Show Active Only
+            </Label>
+          </div>
+        </div>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -155,134 +235,354 @@ const Groups = () => {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Telegram Group</DialogTitle>
+              <DialogTitle>Add New Group</DialogTitle>
               <DialogDescription>
-                Add a new Telegram group to monitor. You can find the chat ID by messaging @userinfobot in your group.
+                Add a new group to your bot's management system
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="chat_id">Chat ID *</Label>
+                <Label htmlFor="chatId">Chat ID</Label>
                 <Input
-                  id="chat_id"
-                  placeholder="-1001234567890"
-                  value={newGroup.chat_id}
-                  onChange={(e) => setNewGroup({ ...newGroup, chat_id: e.target.value })}
+                  id="chatId"
+                  value={formData.chatId}
+                  onChange={(e) => setFormData({ ...formData, chatId: e.target.value })}
+                  placeholder="e.g., -1001234567890"
+                  required
                 />
               </div>
               <div>
-                <Label htmlFor="chat_title">Group Title *</Label>
+                <Label htmlFor="title">Group Name</Label>
                 <Input
-                  id="chat_title"
-                  placeholder="My Telegram Group"
-                  value={newGroup.chat_title}
-                  onChange={(e) => setNewGroup({ ...newGroup, chat_title: e.target.value })}
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="My Group"
+                  required
                 />
               </div>
               <div>
-                <Label htmlFor="chat_type">Chat Type</Label>
+                <Label htmlFor="type">Group Type</Label>
                 <select
-                  id="chat_type"
+                  id="type"
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                   className="w-full p-2 border rounded-md"
-                  value={newGroup.chat_type}
-                  onChange={(e) => setNewGroup({ ...newGroup, chat_type: e.target.value })}
                 >
                   <option value="group">Group</option>
                   <option value="supergroup">Supergroup</option>
                   <option value="channel">Channel</option>
                 </select>
               </div>
-              <Button onClick={handleAddGroup} className="w-full">
-                Add Group
-              </Button>
-            </div>
+              <div>
+                <Label htmlFor="contacts">Contacts (Optional)</Label>
+                <Popover open={openContactsPopover} onOpenChange={setOpenContactsPopover}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openContactsPopover}
+                      className="w-full justify-between"
+                    >
+                      {formData.contacts.length > 0
+                        ? `${formData.contacts.length} contact(s) selected`
+                        : "Select contacts..."
+                      }
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search contacts..." />
+                      <CommandList>
+                        <CommandEmpty>No contacts found.</CommandEmpty>
+                        <CommandGroup>
+                          {Array.isArray(contacts) && contacts.map((contact) => (
+                            <CommandItem
+                              key={contact._id}
+                              value={contact.name}
+                              onSelect={() => {
+                                const isSelected = formData.contacts.includes(contact._id);
+                                const newContactIds = isSelected
+                                  ? formData.contacts.filter(id => id !== contact._id)
+                                  : [...formData.contacts, contact._id];
+                                setFormData({ ...formData, contacts: newContactIds });
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.contacts.includes(contact._id) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {contact.name} ({contact.number})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {formData.contacts.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {formData.contacts.map((contactId) => {
+                      const contact = Array.isArray(contacts) ? contacts.find(c => c._id === contactId) : undefined;
+                      return contact ? (
+                        <Badge key={contactId} variant="secondary" className="text-xs">
+                          {contact.name}
+                          <X
+                            className="ml-1 h-3 w-3 cursor-pointer"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                contacts: formData.contacts.filter(id => id !== contactId)
+                              });
+                            }}
+                          />
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createGroupMutation.isPending}>
+                  {createGroupMutation.isPending ? "Creating..." : "Create Group"}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+      {/* Search Bar */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search groups by name, chat ID, or type..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {filteredGroups.map((group) => (
+          <Card key={group._id}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{group.title}</CardTitle>
+                <Badge variant={group.isActive ? "default" : "secondary"}>
+                  {group.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+              <CardDescription>ID: {group.chatId}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm capitalize">{group.type}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Chat ID: {group.chatId}</span>
+                </div>
+                {group.contacts && group.contacts.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Contacts: </span>
+                    <div className="flex flex-wrap gap-1">
+                      {group.contacts.map((contactId) => {
+                        const contact = Array.isArray(contacts) ? contacts.find(c => c._id === contactId) : undefined;
+                        return contact ? (
+                          <Badge key={contactId} variant="outline" className="text-xs">
+                            {contact.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(group)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="text-red-600">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Group</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{group.title}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(group._id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingGroup} onOpenChange={() => setEditingGroup(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Group</DialogTitle>
+            <DialogDescription>
+              Update the group information
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <CardTitle>Connected Groups</CardTitle>
-              <CardDescription>
-                {groups.length} group{groups.length !== 1 ? 's' : ''} connected
-              </CardDescription>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Search className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="edit-chatId">Chat ID</Label>
               <Input
-                placeholder="Search groups..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
+                id="edit-chatId"
+                value={formData.chatId}
+                onChange={(e) => setFormData({ ...formData, chatId: e.target.value })}
+                placeholder="e.g., -1001234567890"
+                required
               />
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Group Name</TableHead>
-                  <TableHead>Chat ID</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Added</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredGroups.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <Users className="h-8 w-8 text-muted-foreground" />
-                        <p className="text-muted-foreground">No groups found</p>
-                        {searchTerm && (
-                          <Button variant="outline" onClick={() => setSearchTerm("")}>
-                            Clear search
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredGroups.map((group) => (
-                    <TableRow key={group.id}>
-                      <TableCell className="font-medium">{group.chat_title}</TableCell>
-                      <TableCell className="font-mono text-sm">{group.chat_id}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {group.chat_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={group.is_active ? "default" : "secondary"}>
-                          {group.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(group.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleGroupStatus(group.id, group.is_active)}
-                        >
-                          {group.is_active ? "Deactivate" : "Activate"}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+            <div>
+              <Label htmlFor="edit-title">Group Name</Label>
+              <Input
+                id="edit-title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="My Group"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-type">Group Type</Label>
+              <select
+                id="edit-type"
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="group">Group</option>
+                <option value="supergroup">Supergroup</option>
+                <option value="channel">Channel</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="edit-contacts">Contacts (Optional)</Label>
+              <Popover open={openEditContactsPopover} onOpenChange={setOpenEditContactsPopover}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openEditContactsPopover}
+                    className="w-full justify-between"
+                  >
+                    {formData.contacts.length > 0
+                      ? `${formData.contacts.length} contact(s) selected`
+                      : "Select contacts..."
+                    }
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search contacts..." />
+                    <CommandList>
+                      <CommandEmpty>No contacts found.</CommandEmpty>
+                      <CommandGroup>
+                        {Array.isArray(contacts) && contacts.map((contact) => (
+                          <CommandItem
+                            key={contact._id}
+                            value={contact.name}
+                            onSelect={() => {
+                              const isSelected = formData.contacts.includes(contact._id);
+                              const newContactIds = isSelected
+                                ? formData.contacts.filter(id => id !== contact._id)
+                                : [...formData.contacts, contact._id];
+                              setFormData({ ...formData, contacts: newContactIds });
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.contacts.includes(contact._id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {contact.name} ({contact.number})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {formData.contacts.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {formData.contacts.map((contactId) => {
+                    const contact = Array.isArray(contacts) ? contacts.find(c => c._id === contactId) : undefined;
+                    return contact ? (
+                      <Badge key={contactId} variant="secondary" className="text-xs">
+                        {contact.name}
+                        <X
+                          className="ml-1 h-3 w-3 cursor-pointer"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              contacts: formData.contacts.filter(id => id !== contactId)
+                            });
+                          }}
+                        />
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                className="rounded"
+              />
+              <Label htmlFor="edit-isActive">Active</Label>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingGroup(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateGroupMutation.isPending}>
+                {updateGroupMutation.isPending ? "Updating..." : "Update Group"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Users, Workflow, Filter, MessageSquare, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/api/api";
 
 interface Stats {
   groups: number;
@@ -15,34 +16,27 @@ interface Stats {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stats>({ groups: 0, workflows: 0, filters: 0, messages: 0 });
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [groupsRes, workflowsRes, filtersRes, messagesRes] = await Promise.all([
-          supabase.from('telegram_groups').select('id', { count: 'exact', head: true }),
-          supabase.from('n8n_workflows').select('id', { count: 'exact', head: true }),
-          supabase.from('message_filters').select('id', { count: 'exact', head: true }),
-          supabase.from('message_logs').select('id', { count: 'exact', head: true })
-        ]);
+  // Fetch statistics from backend
+  const { data: stats, isLoading, error } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async (): Promise<Stats> => {
+      const [groupsRes, workflowsRes, filtersRes, logsRes] = await Promise.all([
+        api.get('/api/telegram-groups'),
+        api.get('/api/workflows'),
+        api.get('/api/message-filters'),
+        api.get('/api/message-logs/stats')
+      ]);
 
-        setStats({
-          groups: groupsRes.count || 0,
-          workflows: workflowsRes.count || 0,
-          filters: filtersRes.count || 0,
-          messages: messagesRes.count || 0
-        });
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, []);
+      return {
+        groups: groupsRes.data.length || 0,
+        workflows: workflowsRes.data.length || 0,
+        filters: filtersRes.data.length || 0,
+        messages: logsRes.data.totalMessages || 0
+      };
+    },
+    staleTime: 30000, // Cache for 30 seconds
+  });
 
   const quickActions = [
     {
@@ -54,7 +48,7 @@ const Dashboard = () => {
     },
     {
       title: "Add Workflow",
-      description: "Connect new n8n workflow",
+      description: "Connect new workflow",
       icon: Workflow,
       action: () => navigate('/workflows'),
       variant: "secondary" as const
@@ -76,13 +70,13 @@ const Dashboard = () => {
   ];
 
   const statCards = [
-    { title: "Telegram Groups", value: stats.groups, icon: Users, color: "text-blue-600" },
-    { title: "Active Workflows", value: stats.workflows, icon: Workflow, color: "text-green-600" },
-    { title: "Message Filters", value: stats.filters, icon: Filter, color: "text-purple-600" },
-    { title: "Messages Processed", value: stats.messages, icon: MessageSquare, color: "text-orange-600" }
+    { title: "Groups", value: stats?.groups || 0, icon: Users, color: "text-blue-600" },
+    { title: "Active Workflows", value: stats?.workflows || 0, icon: Workflow, color: "text-green-600" },
+    { title: "Message Filters", value: stats?.filters || 0, icon: Filter, color: "text-purple-600" },
+    { title: "Messages Processed", value: stats?.messages || 0, icon: MessageSquare, color: "text-orange-600" }
   ];
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -90,15 +84,28 @@ const Dashboard = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-2">Failed to load dashboard data</p>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Bot className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold">Telegram Bot Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage your Telegram bot integrations with n8n workflows
-          </p>
+      <div className="flex items-center gap-2 justify-between">
+        <div className="flex items-center gap-2">
+          <Bot className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold">Bot Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage your bot integrations with workflows
+            </p>
+          </div>
         </div>
       </div>
 
@@ -151,21 +158,21 @@ const Dashboard = () => {
         <CardContent>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span>Supabase Connection</span>
+              <span>Backend Connection</span>
               <Badge variant="secondary" className="bg-green-100 text-green-800">Connected</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span>Database Tables</span>
+              <span>Database</span>
               <Badge variant="secondary" className="bg-green-100 text-green-800">Ready</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span>Edge Functions</span>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">Deployed</Badge>
+              <span>API Endpoints</span>
+              <Badge variant="secondary" className="bg-green-100 text-green-800">Available</Badge>
             </div>
             <div className="flex items-center justify-between">
               <span>Telegram Webhook</span>
               <Badge variant="outline">
-                {stats.messages > 0 ? "Active" : "Needs Setup"}
+                {stats?.messages > 0 ? "Active" : "Needs Setup"}
               </Badge>
             </div>
           </div>
