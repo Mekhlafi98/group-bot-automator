@@ -11,7 +11,8 @@ async function migrateExistingRecords() {
         console.log('Starting migration to add createdBy field to existing records...');
 
         // Connect to MongoDB
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/telegram-bot-admin');
+        const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/telegram-bot-admin';
+        await mongoose.connect(mongoUri);
 
         // Get the first user (or create a default one if none exists)
         let defaultUser = await User.findOne();

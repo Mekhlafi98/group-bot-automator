@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 async function fixContactsIndexes() {
     try {
         // Connect to MongoDB
-        await mongoose.connect('mongodb://localhost:27017/group-bot');
+        const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/group-bot';
+        await mongoose.connect(mongoUri);
         console.log('Connected to MongoDB');
 
         const db = mongoose.connection.db;

@@ -5,7 +5,8 @@ async function updateUniqueIndexes() {
         console.log('Starting migration to update unique indexes...');
 
         // Connect to MongoDB
-        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/telegram-bot-admin');
+        const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/telegram-bot-admin';
+        await mongoose.connect(mongoUri);
 
         const db = mongoose.connection.db;
 

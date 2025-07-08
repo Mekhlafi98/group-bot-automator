@@ -71,10 +71,12 @@ app.delete('/api/webhook', (req: any, res: any) => {
 });
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/group-bot').then(() => {
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/group-bot';
+mongoose.connect(mongoUri).then(() => {
     console.log('MongoDB connected');
     app.listen(port, () => {
-        console.log(`Backend listening at http://localhost:${port}`);
+        const host = process.env.HOST || '0.0.0.0';
+        console.log(`Backend listening at http://${host}:${port}`);
     });
 }).catch((err: any) => {
     console.error('MongoDB connection error:', err);
