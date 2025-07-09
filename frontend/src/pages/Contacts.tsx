@@ -43,10 +43,10 @@ const Contacts = () => {
         queryKey: ['contacts', searchQuery],
         queryFn: async (): Promise<{ contacts: Contact[], pagination?: any } | Contact[]> => {
             if (searchQuery) {
-                const response = await api.get(`/api/contacts/search?q=${encodeURIComponent(searchQuery)}`);
+                const response = await api.get(`/contacts/search?q=${encodeURIComponent(searchQuery)}`);
                 return response.data;
             } else {
-                const response = await api.get('/api/contacts');
+                const response = await api.get('/contacts');
                 return response.data;
             }
         }
@@ -61,7 +61,7 @@ const Contacts = () => {
     // Create contact mutation
     const createContactMutation = useMutation({
         mutationFn: async (data: Omit<Contact, '_id' | 'createdAt' | 'updatedAt'>) => {
-            const response = await api.post('/api/contacts', data);
+            const response = await api.post('/contacts', data);
             return response.data;
         },
         onSuccess: () => {
@@ -86,7 +86,7 @@ const Contacts = () => {
     // Update contact mutation
     const updateContactMutation = useMutation({
         mutationFn: async ({ id, data }: { id: string; data: Partial<Contact> }) => {
-            const response = await api.put(`/api/contacts/${id}`, data);
+            const response = await api.put(`/contacts/${id}`, data);
             return response.data;
         },
         onSuccess: () => {
@@ -111,7 +111,7 @@ const Contacts = () => {
     // Delete contact mutation
     const deleteContactMutation = useMutation({
         mutationFn: async (id: string) => {
-            await api.delete(`/api/contacts/${id}`);
+            await api.delete(`/contacts/${id}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['contacts'] });
@@ -134,7 +134,7 @@ const Contacts = () => {
     const toggleBlockedMutation = useMutation({
         mutationFn: async (id: string) => {
             console.log('Toggling blocked status for contact:', id);
-            const response = await api.patch(`/api/contacts/${id}/toggle-status`, {
+            const response = await api.patch(`/contacts/${id}/toggle-status`, {
                 field: 'isBlocked'
             });
             console.log('Toggle response:', response.data);

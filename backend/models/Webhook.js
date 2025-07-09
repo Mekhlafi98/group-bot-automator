@@ -20,7 +20,6 @@ const webhookSchema = new mongoose.Schema({
     events: [{
         type: String,
         enum: ['create', 'update', 'delete'],
-        required: true,
     }],
     enabled: {
         type: Boolean,

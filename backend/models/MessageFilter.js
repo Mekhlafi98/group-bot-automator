@@ -35,6 +35,11 @@ const messageFilterSchema = new mongoose.Schema({
     aiPrompt: {
         type: String,
     },
+    support: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Contact',
+        required: false,
+    }],
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

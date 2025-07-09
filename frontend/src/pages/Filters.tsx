@@ -26,6 +26,18 @@ interface MessageFilter {
   isActive: boolean;
   priority: number;
   aiPrompt?: string;
+  support?: Support[] | string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Support {
+  _id: string;
+  name: string;
+  number: string;
+  isActive: boolean;
+  isBlocked: boolean;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -48,18 +60,30 @@ interface Workflow {
 const Filters = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<MessageFilter | null>(null);
-  const [formData, setFormData] = useState({
-    groupId: [] as string[],
+  const [formData, setFormData] = useState<{
+    groupId: string[];
+    workflowId: string;
+    filterName: string;
+    filterType: string;
+    filterValue: string;
+    priority: number;
+    aiPrompt: string;
+    isActive: boolean;
+    support: string[];
+  }>({
+    groupId: [],
     workflowId: "",
     filterName: "",
     filterType: "keyword",
     filterValue: "",
     priority: 0,
     aiPrompt: "",
-    isActive: true
+    isActive: true,
+    support: [],
   });
   const [openGroupPopover, setOpenGroupPopover] = useState(false);
   const [openEditGroupPopover, setOpenEditGroupPopover] = useState(false);
+  const [openSupportPopover, setOpenSupportPopover] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
@@ -75,14 +99,11 @@ const Filters = () => {
   });
 
   // Fetch groups for autocomplete
-  const { data: groups = [], error: groupsError, isLoading: groupsLoading } = useQuery({
+  const { data: groups = [], error: groupsError, isLoading: groupsLoading } = useQuery<TelegramGroup[], Error>({
     queryKey: ['telegram-groups'],
-    queryFn: async (): Promise<TelegramGroup[]> => {
+    queryFn: async () => {
       const response = await api.get('/telegram-groups');
       return response.data;
-    },
-    onError: (error) => {
-      console.error('Error fetching groups:', error);
     }
   });
 
@@ -92,6 +113,15 @@ const Filters = () => {
     queryFn: async (): Promise<Workflow[]> => {
       const response = await api.get('/workflows');
       return response.data;
+    }
+  });
+
+  // Fetch support for autocomplete
+  const { data: supportList = [], error: supportError, isLoading: supportLoading } = useQuery<Support[], Error>({
+    queryKey: ['contacts'],
+    queryFn: async () => {
+      const response = await api.get('/contacts');
+      return Array.isArray(response.data) ? response.data : response.data.contacts;
     }
   });
 
@@ -107,13 +137,16 @@ const Filters = () => {
   // Create filter mutation
   const createFilterMutation = useMutation({
     mutationFn: async (data: Omit<MessageFilter, '_id' | 'createdAt' | 'updatedAt'>) => {
-      const response = await api.post('/message-filters', data);
+      const response = await api.post('/message-filters', {
+        ...data,
+        support: data.support || [],
+      });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['message-filters'] });
       setIsCreateDialogOpen(false);
-      setFormData({ groupId: [], workflowId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true });
+      setFormData({ groupId: [], workflowId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true, support: [] });
       toast({
         title: "Success",
         description: "Filter created successfully",
@@ -132,13 +165,16 @@ const Filters = () => {
   // Update filter mutation
   const updateFilterMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<MessageFilter> }) => {
-      const response = await api.put(`/message-filters/${id}`, data);
+      const response = await api.put(`/message-filters/${id}`, {
+        ...data,
+        support: data.support || [],
+      });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['message-filters'] });
       setEditingFilter(null);
-      setFormData({ groupId: [], workflowId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true });
+      setFormData({ groupId: [], workflowId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true, support: [] });
       toast({
         title: "Success",
         description: "Filter updated successfully",
@@ -206,7 +242,8 @@ const Filters = () => {
     } else {
       createFilterMutation.mutate({
         ...formData,
-        priority: parseInt(formData.priority.toString()) || 0
+        priority: parseInt(formData.priority.toString()) || 0,
+        support: formData.support,
       });
     }
   };
@@ -221,7 +258,10 @@ const Filters = () => {
       filterValue: filter.filterValue,
       priority: filter.priority,
       aiPrompt: filter.aiPrompt || "",
-      isActive: filter.isActive
+      isActive: filter.isActive,
+      support: Array.isArray(filter.support)
+        ? (filter.support as (string | { _id: string })[]).map(s => typeof s === 'string' ? s : s._id)
+        : [],
     });
   };
 
@@ -390,11 +430,8 @@ const Filters = () => {
               <div>
                 <Label htmlFor="workflowId">Workflow ID</Label>
                 <Select
-                  id="workflowId"
                   value={formData.workflowId}
                   onValueChange={(value) => setFormData({ ...formData, workflowId: value })}
-                  placeholder="Select a workflow"
-                  required
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a workflow" />
@@ -461,6 +498,77 @@ const Filters = () => {
                   onChange={(e) => setFormData({ ...formData, aiPrompt: e.target.value })}
                   placeholder="AI prompt for classification"
                 />
+              </div>
+              <div>
+                <Label htmlFor="support">Support (optional)</Label>
+                <Popover open={openSupportPopover} onOpenChange={setOpenSupportPopover}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openSupportPopover}
+                      className="w-full justify-between"
+                    >
+                      {formData.support.length > 0
+                        ? `${formData.support.length} support contact(s) selected`
+                        : "Select support contacts..."
+                      }
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search support..." />
+                      <CommandList>
+                        <CommandEmpty>No support found.</CommandEmpty>
+                        <CommandGroup>
+                          {(supportList as Support[]).map((support) => (
+                            <CommandItem
+                              key={support._id}
+                              value={support.name}
+                              onSelect={() => {
+                                const isSelected = formData.support.includes(support._id);
+                                const newSupportIds = isSelected
+                                  ? formData.support.filter(id => id !== support._id)
+                                  : [...formData.support, support._id];
+                                setFormData({ ...formData, support: newSupportIds });
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.support.includes(support._id) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {support.name} ({support.number})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {formData.support.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {formData.support.map((supportId) => {
+                      const support = (supportList as Support[]).find(c => c._id === supportId);
+                      return support ? (
+                        <Badge key={supportId} variant="secondary" className="text-xs">
+                          {support.name} ({support.number})
+                          <X
+                            className="ml-1 h-3 w-3 cursor-pointer"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                support: formData.support.filter(id => id !== supportId)
+                              });
+                            }}
+                          />
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
@@ -549,6 +657,22 @@ const Filters = () => {
                     )}
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Support: </span>
+                  <div className="flex flex-wrap gap-1">
+                    {filter.support && filter.support.length > 0 ? (
+                      filter.support.map((support: any) => (
+                        <Badge key={typeof support === 'string' ? support : support._id} variant="outline" className="text-xs">
+                          {typeof support === 'string'
+                            ? (supportList as Support[]).find(c => c._id === support)?.name || 'Unknown Support'
+                            : `${support.name} (${support.number})`}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No support assigned</span>
+                    )}
+                  </div>
+                </div>
                 <div className="flex items-center gap-2 pt-2">
                   <Button
                     size="sm"
@@ -609,12 +733,12 @@ const Filters = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="edit-groupId">Groups</Label>
-              <Popover open={openEditGroupPopover} onOpenChange={setOpenEditGroupPopover}>
+              <Popover open={openGroupPopover} onOpenChange={setOpenGroupPopover}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
-                    aria-expanded={openEditGroupPopover}
+                    aria-expanded={openGroupPopover}
                     className="w-full justify-between"
                   >
                     {formData.groupId.length > 0
@@ -681,11 +805,8 @@ const Filters = () => {
             <div>
               <Label htmlFor="edit-workflowId">Workflow ID</Label>
               <Select
-                id="edit-workflowId"
                 value={formData.workflowId}
                 onValueChange={(value) => setFormData({ ...formData, workflowId: value })}
-                placeholder="Select a workflow"
-                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a workflow" />
@@ -752,6 +873,77 @@ const Filters = () => {
                 onChange={(e) => setFormData({ ...formData, aiPrompt: e.target.value })}
                 placeholder="AI prompt for classification"
               />
+            </div>
+            <div>
+              <Label htmlFor="edit-support">Support (optional)</Label>
+              <Popover open={openSupportPopover} onOpenChange={setOpenSupportPopover}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openSupportPopover}
+                    className="w-full justify-between"
+                  >
+                    {formData.support.length > 0
+                      ? `${formData.support.length} support contact(s) selected`
+                      : "Select support contacts..."
+                    }
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search support..." />
+                    <CommandList>
+                      <CommandEmpty>No support found.</CommandEmpty>
+                      <CommandGroup>
+                        {(supportList as Support[]).map((support) => (
+                          <CommandItem
+                            key={support._id}
+                            value={support.name}
+                            onSelect={() => {
+                              const isSelected = formData.support.includes(support._id);
+                              const newSupportIds = isSelected
+                                ? formData.support.filter(id => id !== support._id)
+                                : [...formData.support, support._id];
+                              setFormData({ ...formData, support: newSupportIds });
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.support.includes(support._id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {support.name} ({support.number})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {formData.support.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {formData.support.map((supportId) => {
+                    const support = (supportList as Support[]).find(c => c._id === supportId);
+                    return support ? (
+                      <Badge key={supportId} variant="secondary" className="text-xs">
+                        {support.name} ({support.number})
+                        <X
+                          className="ml-1 h-3 w-3 cursor-pointer"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              support: formData.support.filter(id => id !== supportId)
+                            });
+                          }}
+                        />
+                      </Badge>
+                    ) : null;
+                  })}
+                </div>
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <input

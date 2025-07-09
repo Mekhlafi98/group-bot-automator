@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Bot Automator - External API Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            color: #2c3e50;
+            margin: 30px 0 15px 0;
+            font-weight: 600;
+            scroll-margin-top: 100px;
+        }
+        
+        h1 { font-size: 2rem; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
+        h2 { font-size: 1.8rem; border-bottom: 2px solid #ecf0f1; padding-bottom: 8px; }
+        h3 { font-size: 1.4rem; color: #34495e; }
+        h4 { font-size: 1.2rem; color: #7f8c8d; }
+        
+        p {
+            margin-bottom: 15px;
+            color: #555;
+        }
+        
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            color: #e74c3c;
+        }
+        
+        pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 20px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+        
+        .endpoint {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .method {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-right: 10px;
+        }
+        
+        .get { background: #61affe; color: white; }
+        .post { background: #49cc90; color: white; }
+        .put { background: #fca130; color: white; }
+        .delete { background: #f93e3e; color: white; }
+        .patch { background: #50e3c2; color: white; }
+        
+        .url {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 1.1em;
+            color: #2c3e50;
+        }
+        
+        .params {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .params h4 {
+            color: #856404;
+            margin-top: 0;
+        }
+        
+        .response {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .response h4 {
+            color: #0c5460;
+            margin-top: 0;
+        }
+        
+        .required {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .optional {
+            color: #7f8c8d;
+        }
+        
+        .status-codes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .status-code {
+            background: #f8f9fa;
+            border-radius: 4px;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .status-code .code {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .status-200 { border-left: 4px solid #28a745; }
+        .status-201 { border-left: 4px solid #28a745; }
+        .status-400 { border-left: 4px solid #ffc107; }
+        .status-401 { border-left: 4px solid #dc3545; }
+        .status-404 { border-left: 4px solid #6c757d; }
+        .status-429 { border-left: 4px solid #fd7e14; }
+        .status-500 { border-left: 4px solid #dc3545; }
+        
+        .example {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .example h4 {
+            color: #495057;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .language-tabs {
+            display: flex;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 15px;
+        }
+        
+        .language-tab {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            margin-right: 5px;
+        }
+        
+        .language-tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .language-content {
+            display: none;
+        }
+        
+        .language-content.active {
+            display: block;
+        }
+        
+        .nav-toc {
+            position: sticky;
+            top: 20px;
+            background: white;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .nav-toc h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        
+        .nav-toc ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .nav-toc li {
+            margin: 8px 0;
+        }
+        
+        .nav-toc a {
+            color: #555;
+            text-decoration: none;
+            padding: 5px 0;
+            display: block;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .nav-toc a:hover {
+            background: #f8f9fa;
+            color: #667eea;
+            padding-left: 10px;
+        }
+        
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin: 10px 0;
+            transition: background 0.2s;
+        }
+        
+        .copy-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .status-codes {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav-toc {
+                position: static;
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Group Bot Automator</h1>
+            <p>External API Documentation</p>
+        </div>
+        
+        <div class="content">
+            <div class="nav-toc">
+                <h3>📋 Table of Contents</h3>
+                <ul>
+                    <li><a href="#overview">Overview</a></li>
+                    <li><a href="#authentication">Authentication</a></li>
+                    <li><a href="#rate-limiting">Rate Limiting</a></li>
+                    <li><a href="#response-format">Response Format</a></li>
+                    <li><a href="#http-status-codes">HTTP Status Codes</a></li>
+                    <li><a href="#endpoints">Endpoints</a></li>
+                    <li><a href="#health-check">Health Check</a></li>
+                    <li><a href="#contacts">Contacts</a></li>
+                    <li><a href="#workflows">Workflows</a></li>
+                    <li><a href="#telegram-groups">Telegram Groups</a></li>
+                    <li><a href="#message-filters">Message Filters</a></li>
+                    <li><a href="#webhooks">Webhooks</a></li>
+                    <li><a href="#message-logs">Message Logs</a></li>
+                    <li><a href="#actions">Actions</a></li>
+                    <li><a href="#bulk-messages">Bulk Messages</a></li>
+                    <li><a href="#system-status">System Status</a></li>
+                    <li><a href="#notifications">Notifications</a></li>
+                    <li><a href="#statistics">Statistics</a></li>
+                    <li><a href="#error-handling">Error Handling</a></li>
+                    <li><a href="#sdk-examples">SDK Examples</a></li>
+                    <li><a href="#webhook-events">Webhook Events</a></li>
+                    <li><a href="#best-practices">Best Practices</a></li>
+                    <li><a href="#support">Support</a></li>
+                </ul>
+            </div>
+            
+            <div id="documentation-content">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Load documentation content
+        async function loadDocumentation() {
+            try {
+                const response = await fetch('/api/docs/json');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const markdown = data.data.markdown;
+                    const html = convertMarkdownToHtml(markdown);
+                    document.getElementById('documentation-content').innerHTML = html;
+                    
+                    // Initialize features after content is loaded
+                    initializeCopyButtons();
+                    initializeSyntaxHighlighting();
+                    initializeSmoothScrolling();
+                } else {
+                    document.getElementById('documentation-content').innerHTML = 
+                        '<div class="error">Failed to load documentation</div>';
+                }
+            } catch (error) {
+                console.error('Error loading documentation:', error);
+                document.getElementById('documentation-content').innerHTML = 
+                    '<div class="error">Error loading documentation. Please try again.</div>';
+            }
+        }
+        
+        // Convert markdown to HTML with proper section IDs
+        function convertMarkdownToHtml(markdown) {
+            return markdown
+                // Headers with IDs
+                .replace(/^# (.*$)/gim, '<h1 id="$1">$1</h1>')
+                .replace(/^## (.*$)/gim, '<h2 id="$1">$1</h2>')
+                .replace(/^### (.*$)/gim, '<h3 id="$1">$1</h3>')
+                .replace(/^#### (.*$)/gim, '<h4 id="$1">$1</h4>')
+                
+                // Code blocks
+                .replace(/```json\n([\s\S]*?)\n```/g, '<pre><code class="language-json">$1</code></pre>')
+                .replace(/```javascript\n([\s\S]*?)\n```/g, '<pre><code class="language-javascript">$1</code></pre>')
+                .replace(/```python\n([\s\S]*?)\n```/g, '<pre><code class="language-python">$1</code></pre>')
+                .replace(/```bash\n([\s\S]*?)\n```/g, '<pre><code class="language-bash">$1</code></pre>')
+                
+                // Inline code
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                
+                // Bold and italic
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                
+                // HTTP method endpoints
+                .replace(/#### (GET|POST|PUT|DELETE|PATCH) (.*$)/gim, '<div class="endpoint"><span class="method $1.toLowerCase()">$1</span><span class="url">$2</span></div>')
+                
+                // Lists
+                .replace(/^\* (.*$)/gim, '<li>$1</li>')
+                .replace(/^- (.*$)/gim, '<li>$1</li>')
+                
+                // Paragraphs
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/^<p>/, '')
+                .replace(/<\/p>$/, '');
+        }
+        
+        // Initialize copy buttons
+        function initializeCopyButtons() {
+            document.querySelectorAll('pre').forEach(block => {
+                const button = document.createElement('button');
+                button.className = 'copy-btn';
+                button.textContent = 'Copy';
+                button.onclick = () => {
+                    navigator.clipboard.writeText(block.textContent);
+                    button.textContent = 'Copied!';
+                    setTimeout(() => button.textContent = 'Copy', 2000);
+                };
+                block.parentNode.insertBefore(button, block);
+            });
+        }
+        
+        // Initialize syntax highlighting
+        function initializeSyntaxHighlighting() {
+            document.querySelectorAll('pre code').forEach(block => {
+                // Basic syntax highlighting for JSON
+                if (block.textContent.includes('{') && block.textContent.includes('}')) {
+                    block.innerHTML = block.textContent
+                        .replace(/"([^"]+)":/g, '<span style="color: #61affe;">"$1"</span>:')
+                        .replace(/: "([^"]+)"/g, ': <span style="color: #49cc90;">"$1"</span>')
+                        .replace(/: (\d+)/g, ': <span style="color: #fca130;">$1</span>')
+                        .replace(/: (true|false|null)/g, ': <span style="color: #f93e3e;">$1</span>');
+                }
+            });
+        }
+        
+        // Initialize smooth scrolling
+        function initializeSmoothScrolling() {
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href').substring(1);
+                    const target = document.getElementById(targetId);
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
+        }
+        
+        // Load documentation when page loads
+        document.addEventListener('DOMContentLoaded', loadDocumentation);
+    </script>
+</body>
+</html> 

@@ -12,9 +12,9 @@ import Groups from "./pages/Groups";
 import Workflows from "./pages/Workflows";
 import Filters from "./pages/Filters";
 import Logs from "./pages/Logs";
-import Setup from "./pages/Setup";
 import Contacts from "./pages/Contacts";
 import Profile from "./pages/Profile";
+import ApiTokens from "./pages/ApiTokens";
 import NotFound from "./pages/NotFound";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
@@ -23,7 +23,6 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import Webhooks from "./pages/Webhooks";
 import Settings from './pages/Settings';
 import BulkMessaging from "./pages/BulkMessaging";
-import Notifications from "./pages/Notifications";
 import SystemStatus from './pages/SystemStatus';
 import Alerts from './pages/Alerts';
 
@@ -110,6 +109,11 @@ function AppContent() {
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/api-tokens" element={
+                <ProtectedRoute>
+                  <ApiTokens />
                 </ProtectedRoute>
               } />
               <Route path="/messaging" element={<BulkMessaging />} />

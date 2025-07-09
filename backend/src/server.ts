@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
+const fs = require('fs');
 
 const authRoutes = require(path.join(__dirname, '../routes/authRoutes.js'));
 const telegramGroupsRoutes = require(path.join(__dirname, '../routes/telegramGroupsRoutes.js'));
@@ -14,12 +15,16 @@ const bulkMessagesRoutes = require(path.join(__dirname, '../routes/bulkMessagesR
 const notificationsRoutes = require(path.join(__dirname, '../routes/notificationsRoutes.js'));
 const actionsRoutes = require(path.join(__dirname, '../routes/actionsRoutes.js'));
 const systemStatusRoutes = require('../routes/systemStatusRoutes');
+const externalApiRoutes = require(path.join(__dirname, '../routes/externalApiRoutes.js'));
 
 const app = express();
 const port = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from public directory
+app.use('/public', express.static(path.join(__dirname, '../public')));
 
 // Auth routes
 app.use('/api/auth', authRoutes);
@@ -36,6 +41,41 @@ app.use('/api/bulk-messages', bulkMessagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/actions', actionsRoutes);
 app.use('/api/system-status', systemStatusRoutes);
+
+// External API routes (secure)
+app.use('/api/external', externalApiRoutes);
+
+// API Documentation route - serve static HTML file
+app.get('/api/docs', (req: any, res: any) => {
+    const docsPath = path.join(__dirname, '../public/api-docs.html');
+    if (fs.existsSync(docsPath)) {
+        res.sendFile(docsPath);
+    } else {
+        res.status(404).json({ error: 'Documentation file not found' });
+    }
+});
+
+// API Documentation JSON endpoint
+app.get('/api/docs/json', (req: any, res: any) => {
+    try {
+        const docsPath = path.join(__dirname, '../EXTERNAL_API_DOCUMENTATION.md');
+        if (fs.existsSync(docsPath)) {
+            const markdown = fs.readFileSync(docsPath, 'utf8');
+            res.json({
+                success: true,
+                data: {
+                    markdown: markdown,
+                    lastUpdated: fs.statSync(docsPath).mtime.toISOString()
+                }
+            });
+        } else {
+            res.status(404).json({ error: 'Documentation file not found' });
+        }
+    } catch (error) {
+        console.error('Error serving API documentation JSON:', error);
+        res.status(500).json({ error: 'Failed to load documentation' });
+    }
+});
 
 // In-memory store for webhook info
 let webhookInfo: any = null;
@@ -77,6 +117,7 @@ mongoose.connect(mongoUri).then(() => {
     app.listen(port, () => {
         const host = process.env.HOST || '0.0.0.0';
         console.log(`Backend listening at http://${host}:${port}`);
+        console.log(`API Documentation available at http://${host}:${port}/api/docs`);
     });
 }).catch((err: any) => {
     console.error('MongoDB connection error:', err);

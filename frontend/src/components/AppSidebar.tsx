@@ -14,7 +14,8 @@ import {
   Shield,
   UserCheck,
   Bell,
-  AlertTriangle
+  AlertTriangle,
+  Key
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -71,6 +72,11 @@ const navigation = [
     title: "Webhooks",
     url: "/webhooks",
     icon: Webhook,
+  },
+  {
+    title: "API Tokens",
+    url: "/api-tokens",
+    icon: Key,
   },
   {
     title: "Logs",

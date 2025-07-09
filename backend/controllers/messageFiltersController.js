@@ -10,6 +10,7 @@ async function getAllFilters(req, res) {
         })
             .populate('groupId', 'title chatId')
             .populate('workflowId', 'name workflowId')
+            .populate('support', 'name number')
             .sort({ createdAt: -1 });
 
         res.status(200).json(filters);
@@ -28,7 +29,8 @@ async function getFilterById(req, res) {
             createdBy: req.user._id
         })
             .populate('groupId', 'title chatId')
-            .populate('workflowId', 'name workflowId');
+            .populate('workflowId', 'name workflowId')
+            .populate('support', 'name number');
 
         if (!filter) {
             return res.status(404).json({ message: 'Filter not found' });
@@ -61,6 +63,7 @@ async function getFiltersByGroup(req, res) {
             createdBy: req.user._id
         })
             .populate('workflowId', 'name workflowId')
+            .populate('support', 'name number')
             .sort({ createdAt: -1 });
 
         res.status(200).json(filters);
@@ -73,7 +76,7 @@ async function getFiltersByGroup(req, res) {
 // Create new filter
 async function createFilter(req, res) {
     try {
-        const { groupId, workflowId, filterName, filterType, filterValue, priority, aiPrompt } = req.body;
+        const { groupId, workflowId, filterName, filterType, filterValue, priority, aiPrompt, support } = req.body;
 
         if (!groupId || !workflowId || !filterName || !filterType || !filterValue) {
             return res.status(400).json({
@@ -101,6 +104,19 @@ async function createFilter(req, res) {
             return res.status(400).json({ message: 'Workflow not found or not accessible' });
         }
 
+        // Validate support if provided
+        let validSupport = [];
+        if (support && Array.isArray(support) && support.length > 0) {
+            const userContacts = await require('../models/Contact').find({
+                _id: { $in: support },
+                createdBy: req.user._id
+            });
+            if (userContacts.length !== support.length) {
+                return res.status(400).json({ message: 'One or more support contacts not found or not accessible' });
+            }
+            validSupport = support;
+        }
+
         const filter = new MessageFilter({
             groupId,
             workflowId,
@@ -109,6 +125,7 @@ async function createFilter(req, res) {
             filterValue,
             priority: priority || 0,
             aiPrompt,
+            support: validSupport,
             createdBy: req.user._id,
         });
 
@@ -116,7 +133,8 @@ async function createFilter(req, res) {
 
         const populatedFilter = await MessageFilter.findById(filter._id)
             .populate('groupId', 'title chatId')
-            .populate('workflowId', 'name workflowId');
+            .populate('workflowId', 'name workflowId')
+            .populate('support', 'name number');
 
         res.status(201).json(populatedFilter);
     } catch (error) {
@@ -129,7 +147,7 @@ async function createFilter(req, res) {
 async function updateFilter(req, res) {
     try {
         const { id } = req.params;
-        const { groupId, workflowId, filterName, filterType, filterValue, isActive, priority, aiPrompt } = req.body;
+        const { groupId, workflowId, filterName, filterType, filterValue, isActive, priority, aiPrompt, support } = req.body;
 
         const filter = await MessageFilter.findOne({
             _id: id,
@@ -173,11 +191,27 @@ async function updateFilter(req, res) {
         if (priority !== undefined) filter.priority = priority;
         if (aiPrompt !== undefined) filter.aiPrompt = aiPrompt;
 
+        // If updating support, validate ownership
+        if (support) {
+            if (!Array.isArray(support)) {
+                return res.status(400).json({ message: 'Support must be an array' });
+            }
+            const userContacts = await require('../models/Contact').find({
+                _id: { $in: support },
+                createdBy: req.user._id
+            });
+            if (userContacts.length !== support.length) {
+                return res.status(400).json({ message: 'One or more support contacts not found or not accessible' });
+            }
+            filter.support = support;
+        }
+
         await filter.save();
 
         const populatedFilter = await MessageFilter.findById(filter._id)
             .populate('groupId', 'title chatId')
-            .populate('workflowId', 'name workflowId');
+            .populate('workflowId', 'name workflowId')
+            .populate('support', 'name number');
 
         res.status(200).json(populatedFilter);
     } catch (error) {
