@@ -3,10 +3,10 @@ const router = express.Router();
 const { requireUser } = require('./middleware/auth');
 const controller = require('../controllers/whatsAppChannelController');
 
-router.post('/channels', requireUser, controller.createChannel);
-router.get('/channels', requireUser, controller.getChannels);
-router.get('/channels/:id', requireUser, controller.getChannel);
-router.put('/channels/:id', requireUser, controller.updateChannel);
-router.delete('/channels/:id', requireUser, controller.deleteChannel);
+router.post('/', requireUser, controller.createChannel);
+router.get('/', requireUser, controller.getChannels);
+router.get('/:id', requireUser, controller.getChannel);
+router.put('/:id', requireUser, controller.updateChannel);
+router.delete('/:id', requireUser, controller.deleteChannel);
 
 module.exports = router; 

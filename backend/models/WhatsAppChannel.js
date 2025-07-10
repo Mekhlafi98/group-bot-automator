@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const whatsAppChannelSchema = new mongoose.Schema({
-  session: {
+  phone: {
     type: String,
     required: true,
     trim: true,
@@ -15,8 +15,8 @@ const whatsAppChannelSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['CONNECTED', 'DISCONNECTED', 'WAITING QR', 'UNKNOWN'],
-    default: 'UNKNOWN',
+    enum: ['CONNECTED', 'DISCONNECTED', 'WAITING QR', 'QRCODE'],
+    default: 'DISCONNECTED'
   },
   qr: {
     type: String,
@@ -31,8 +31,8 @@ const whatsAppChannelSchema = new mongoose.Schema({
   versionKey: false,
 });
 
-// Unique index on session + createdBy
-whatsAppChannelSchema.index({ session: 1, createdBy: 1 }, { unique: true });
+// Unique index on phone + createdBy
+whatsAppChannelSchema.index({ phone: 1, createdBy: 1 }, { unique: true });
 
 const WhatsAppChannel = mongoose.model('WhatsAppChannel', whatsAppChannelSchema);
 
