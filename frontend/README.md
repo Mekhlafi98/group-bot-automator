@@ -71,3 +71,17 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Environment Variables
+
+The following environment variables can be set in a `.env` file in the `frontend` directory to configure the Channels page:
+
+- `VITE_WPP_API_URL`: The base URL for the WhatsApp API (default: `http://localhost:21465/api`)
+- `VITE_WPP_API_SECRET`: The default secret key to prefill in the Channels page (optional)
+
+Example `.env`:
+
+```
+VITE_WPP_API_URL=http://localhost:21465/api
+VITE_WPP_API_SECRET=THISISMYSECURETOKEN
+```

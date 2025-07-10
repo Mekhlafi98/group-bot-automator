@@ -31,7 +31,7 @@ The server will run on [http://localhost:4000](http://localhost:4000) by default
 ### Internal API (requires JWT authentication)
 - `GET /api/webhook` — fetch webhook info
 - `POST /api/webhook` — set webhook (body: `{ url, has_custom_certificate, max_connections, allowed_updates }`)
-- `DELETE /api/webhook` — delete webhook
+- `DELETE /api/webhook` — delete webhook 
 - `GET /api/contacts` — get all contacts
 - `GET /api/workflows` — get all workflows
 - `GET /api/groups` — get all telegram groups

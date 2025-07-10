@@ -25,6 +25,7 @@ import Settings from './pages/Settings';
 import BulkMessaging from "./pages/BulkMessaging";
 import SystemStatus from './pages/SystemStatus';
 import Alerts from './pages/Alerts';
+import Channels from "./pages/Channels";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -119,6 +120,11 @@ function AppContent() {
               <Route path="/messaging" element={<BulkMessaging />} />
               <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
               <Route path="/system-status" element={<ProtectedRoute><SystemStatus /></ProtectedRoute>} />
+              <Route path="/channels" element={
+                <ProtectedRoute>
+                  <Channels />
+                </ProtectedRoute>
+              } />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

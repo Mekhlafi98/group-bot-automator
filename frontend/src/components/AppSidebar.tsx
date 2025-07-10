@@ -54,6 +54,11 @@ const navigation = [
     icon: Users,
   },
   {
+    title: "Channels",
+    url: "/channels",
+    icon: MessageSquare,
+  },
+  {
     title: "Workflows",
     url: "/workflows",
     icon: Workflow,

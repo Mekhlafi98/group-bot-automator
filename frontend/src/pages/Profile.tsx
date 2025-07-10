@@ -178,7 +178,7 @@ const Profile = () => {
                                 <div className="p-2 bg-orange-100 rounded-lg">
                                     <Clock className="h-5 w-5 text-orange-600" />
                                 </div>
-                                <div>
+                        <div>
                                     <p className="text-sm font-medium text-gray-600">Last Login</p>
                                     <p className="text-lg font-semibold">{formatDate(profile.lastLoginAt)}</p>
                                 </div>
@@ -227,13 +227,13 @@ const Profile = () => {
                                 <form onSubmit={handleCreateToken} className="space-y-4">
                                     <div>
                                         <Label htmlFor="token-label">Token Label</Label>
-                                        <Input
+                        <Input
                                             id="token-label"
-                                            value={newLabel}
-                                            onChange={e => setNewLabel(e.target.value)}
+                            value={newLabel}
+                            onChange={e => setNewLabel(e.target.value)}
                                             placeholder="e.g., My Integration Script"
-                                            required
-                                            disabled={loading}
+                            required
+                            disabled={loading}
                                             className="mt-1"
                                         />
                                         <p className="text-xs text-muted-foreground mt-1">
@@ -248,7 +248,7 @@ const Profile = () => {
                                             {loading ? 'Creating...' : 'Create Token'}
                                         </Button>
                                     </DialogFooter>
-                                </form>
+                    </form>
                             </DialogContent>
                         </Dialog>
                     </div>
@@ -381,9 +381,9 @@ const Profile = () => {
                                             </div>
                                         </div>
                                         <Badge variant="secondary">Revoked</Badge>
-                                    </div>
-                                ))}
                             </div>
+                        ))}
+                    </div>
                         </div>
                     )}
 

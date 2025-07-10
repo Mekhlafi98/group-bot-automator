@@ -380,55 +380,55 @@ const Webhooks = () => {
                                 </p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="method">HTTP Method</Label>
-                                    <Select
-                                        value={formData.method}
-                                        onValueChange={(value) => setFormData({ ...formData, method: value })}
-                                    >
+                            <div>
+                                <Label htmlFor="method">HTTP Method</Label>
+                                <Select
+                                    value={formData.method}
+                                    onValueChange={(value) => setFormData({ ...formData, method: value })}
+                                >
                                         <SelectTrigger className="mt-1">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="GET">GET</SelectItem>
-                                            <SelectItem value="POST">POST</SelectItem>
-                                            <SelectItem value="PUT">PUT</SelectItem>
-                                            <SelectItem value="PATCH">PATCH</SelectItem>
-                                            <SelectItem value="DELETE">DELETE</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="entityType">Entity Type</Label>
-                                    <Select
-                                        value={formData.entityType}
-                                        onValueChange={(value) =>
-                                            setFormData({ ...formData, entityType: value })
-                                        }
-                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="GET">GET</SelectItem>
+                                        <SelectItem value="POST">POST</SelectItem>
+                                        <SelectItem value="PUT">PUT</SelectItem>
+                                        <SelectItem value="PATCH">PATCH</SelectItem>
+                                        <SelectItem value="DELETE">DELETE</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label htmlFor="entityType">Entity Type</Label>
+                                <Select
+                                    value={formData.entityType}
+                                    onValueChange={(value) =>
+                                        setFormData({ ...formData, entityType: value })
+                                    }
+                                >
                                         <SelectTrigger className="mt-1">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {entityTypes.map((entityType) => (
-                                                <SelectItem key={entityType.value} value={entityType.value}>
-                                                    <div className="flex items-center gap-2">
-                                                        {getEntityTypeIcon(entityType.value)}
-                                                        <span>{entityType.label}</span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {entityTypes.map((entityType) => (
+                                            <SelectItem key={entityType.value} value={entityType.value}>
+                                                <div className="flex items-center gap-2">
+                                                    {getEntityTypeIcon(entityType.value)}
+                                                    <span>{entityType.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 </div>
                             </div>
-                            {formData.entityType !== 'all' && (
+                                {formData.entityType !== 'all' && (
                                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                     <p className="text-sm text-blue-800">
                                         {entityTypes.find(t => t.value === formData.entityType)?.description}
                                     </p>
                                 </div>
-                            )}
+                                )}
                             <div>
                                 <Label>Events to Monitor</Label>
                                 <div className="grid grid-cols-3 gap-2 mt-2">
@@ -560,18 +560,18 @@ const Webhooks = () => {
 
             {/* Webhooks List */}
             <Card className="border-0 shadow-lg">
-                <CardHeader>
+                        <CardHeader>
                     <CardTitle className="flex items-center gap-3">
                         <div className="p-2 bg-indigo-100 rounded-lg">
                             <Webhook className="h-5 w-5 text-indigo-600" />
                         </div>
                         Your Webhooks
-                    </CardTitle>
+                                </CardTitle>
                     <CardDescription>
                         Manage and monitor your webhook configurations
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="active" className="flex items-center gap-2">
@@ -638,16 +638,16 @@ const Webhooks = () => {
                                                                 <Copy className="h-3 w-3" />
                                                             )}
                                                         </Button>
-                                                    </div>
+                                    </div>
                                                     {webhook.description && (
                                                         <p className="text-sm text-gray-600">{webhook.description}</p>
-                                                    )}
+                                )}
                                                 </div>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {webhook.events.map((event) => (
+                                <div className="flex flex-wrap gap-1">
+                                    {webhook.events.map((event) => (
                                                         <Badge key={event} variant="outline" className="capitalize text-xs">
-                                                            {event}
-                                                        </Badge>
+                                            {event}
+                                        </Badge>
                                                     ))}
                                                 </div>
                                                 <div className="flex items-center justify-between pt-2">
@@ -748,42 +748,42 @@ const Webhooks = () => {
                                                     )}
                                                 </div>
                                                 <div className="flex items-center justify-between pt-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handleEdit(webhook)}
-                                                    >
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleEdit(webhook)}
+                                    >
                                                         <Edit className="h-3 w-3" />
-                                                    </Button>
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
                                                             <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
                                                                 <Trash2 className="h-3 w-3" />
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Delete Webhook</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    Are you sure you want to delete this webhook? This action cannot be undone.
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction
-                                                                    onClick={() => handleDelete(webhook._id)}
-                                                                    className="bg-red-600 hover:bg-red-700"
-                                                                >
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Delete Webhook</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Are you sure you want to delete this webhook? This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                    onClick={() => handleDelete(webhook._id)}
+                                                    className="bg-red-600 hover:bg-red-700"
+                                                >
                                                                     Delete Webhook
-                                                                </AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
                             )}
                         </TabsContent>
                     </Tabs>
@@ -816,46 +816,46 @@ const Webhooks = () => {
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="edit-method">HTTP Method</Label>
-                                <Select
-                                    value={formData.method}
-                                    onValueChange={(value) => setFormData({ ...formData, method: value })}
-                                >
+                        <div>
+                            <Label htmlFor="edit-method">HTTP Method</Label>
+                            <Select
+                                value={formData.method}
+                                onValueChange={(value) => setFormData({ ...formData, method: value })}
+                            >
                                     <SelectTrigger className="mt-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="GET">GET</SelectItem>
-                                        <SelectItem value="POST">POST</SelectItem>
-                                        <SelectItem value="PUT">PUT</SelectItem>
-                                        <SelectItem value="PATCH">PATCH</SelectItem>
-                                        <SelectItem value="DELETE">DELETE</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label htmlFor="edit-entityType">Entity Type</Label>
-                                <Select
-                                    value={formData.entityType}
-                                    onValueChange={(value) =>
-                                        setFormData({ ...formData, entityType: value })
-                                    }
-                                >
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="GET">GET</SelectItem>
+                                    <SelectItem value="POST">POST</SelectItem>
+                                    <SelectItem value="PUT">PUT</SelectItem>
+                                    <SelectItem value="PATCH">PATCH</SelectItem>
+                                    <SelectItem value="DELETE">DELETE</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="edit-entityType">Entity Type</Label>
+                            <Select
+                                value={formData.entityType}
+                                onValueChange={(value) =>
+                                    setFormData({ ...formData, entityType: value })
+                                }
+                            >
                                     <SelectTrigger className="mt-1">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {entityTypes.map((entityType) => (
-                                            <SelectItem key={entityType.value} value={entityType.value}>
-                                                <div className="flex items-center gap-2">
-                                                    {getEntityTypeIcon(entityType.value)}
-                                                    <span>{entityType.label}</span>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {entityTypes.map((entityType) => (
+                                        <SelectItem key={entityType.value} value={entityType.value}>
+                                            <div className="flex items-center gap-2">
+                                                {getEntityTypeIcon(entityType.value)}
+                                                <span>{entityType.label}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             </div>
                         </div>
                         <div>

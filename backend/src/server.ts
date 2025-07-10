@@ -16,6 +16,7 @@ const notificationsRoutes = require(path.join(__dirname, '../routes/notification
 const actionsRoutes = require(path.join(__dirname, '../routes/actionsRoutes.js'));
 const systemStatusRoutes = require('../routes/systemStatusRoutes');
 const externalApiRoutes = require(path.join(__dirname, '../routes/externalApiRoutes.js'));
+const whatsAppChannelRoutes = require(path.join(__dirname, '../routes/whatsAppChannelRoutes.js'));
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -41,6 +42,7 @@ app.use('/api/bulk-messages', bulkMessagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/actions', actionsRoutes);
 app.use('/api/system-status', systemStatusRoutes);
+app.use('/api/channels', whatsAppChannelRoutes);
 
 // External API routes (secure)
 app.use('/api/external', externalApiRoutes);
