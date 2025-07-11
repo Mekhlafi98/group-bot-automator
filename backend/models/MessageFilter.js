@@ -17,10 +17,6 @@ const messageFilterSchema = new mongoose.Schema({
         ref: 'WhatsAppChannel',
         required: true,
     },
-    filterName: {
-        type: String,
-        required: true,
-    },
     filterType: {
         type: String,
         required: true,

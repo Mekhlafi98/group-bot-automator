@@ -58,11 +58,11 @@ const navigation = [
     url: "/channels",
     icon: MessageSquare,
   },
-  {
-    title: "Workflows",
-    url: "/workflows",
-    icon: Workflow,
-  },
+  // {
+  //   title: "Workflows",
+  //   url: "/workflows",
+  //   icon: Workflow,
+  // },
   {
     title: "Filters",
     url: "/filters",
@@ -88,26 +88,26 @@ const navigation = [
     url: "/logs",
     icon: History,
   },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings,
-  },
+  // {
+  //   title: "Settings",
+  //   url: "/settings",
+  //   icon: Settings,
+  // },
   {
     title: "Messaging",
     url: "/messaging",
     icon: MessageSquare,
   },
-  {
-    title: "Alerts",
-    url: "/alerts",
-    icon: AlertTriangle,
-  },
-  {
-    label: "System Status",
-    to: "/system-status",
-    icon: AlertTriangle,
-  },
+  // {
+  //   title: "Alerts",
+  //   url: "/alerts",
+  //   icon: AlertTriangle,
+  // },
+  // {
+  //   label: "System Status",
+  //   to: "/system-status",
+  //   icon: AlertTriangle,
+  // },
   // Profile link removed from sidebar - accessible only via user dropdown
   // {
   //   title: "Profile",

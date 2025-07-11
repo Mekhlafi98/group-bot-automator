@@ -7,20 +7,20 @@ const helmet = require('helmet');
 // Security middleware for external APIs
 const externalApiAuth = async (req, res, next) => {
     const apiToken = req.headers['x-api-token'];
-    
+
     if (!apiToken) {
-        return res.status(401).json({ 
-            error: 'Unauthorized', 
-            message: 'API token is required' 
+        return res.status(401).json({
+            error: 'Unauthorized',
+            message: 'API token is required'
         });
     }
 
     try {
         const userId = await verifyApiToken(apiToken);
         if (!userId) {
-            return res.status(401).json({ 
-                error: 'Unauthorized', 
-                message: 'Invalid API token' 
+            return res.status(401).json({
+                error: 'Unauthorized',
+                message: 'Invalid API token'
             });
         }
 
@@ -29,9 +29,9 @@ const externalApiAuth = async (req, res, next) => {
         next();
     } catch (error) {
         console.error('External API auth error:', error);
-        return res.status(500).json({ 
+        return res.status(500).json({
             error: 'Internal server error',
-            message: 'Authentication failed' 
+            message: 'Authentication failed'
         });
     }
 };
@@ -55,7 +55,7 @@ router.use(externalApiAuth);
 
 // Health check endpoint
 router.get('/health', (req, res) => {
-    res.json({ 
+    res.json({
         status: 'healthy',
         timestamp: new Date().toISOString(),
         service: 'group-bot-automator-external-api'
@@ -70,20 +70,20 @@ router.get('/health', (req, res) => {
 router.get('/contacts', async (req, res) => {
     try {
         const Contact = require('../models/Contact');
-        const contacts = await Contact.find({ 
-            createdBy: req.externalUser 
+        const contacts = await Contact.find({
+            createdBy: req.externalUser
         }).select('-__v');
-        
-        res.json({ 
+
+        res.json({
             success: true,
             data: { contacts },
             count: contacts.length
         });
     } catch (error) {
         console.error('External contacts error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
-            message: 'Failed to fetch contacts' 
+            message: 'Failed to fetch contacts'
         });
     }
 });
@@ -93,9 +93,9 @@ router.get('/contacts/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const Contact = require('../models/Contact');
-        const contact = await Contact.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const contact = await Contact.findOne({
+            _id: id,
+            createdBy: req.externalUser
         }).select('-__v');
 
         if (!contact) {
@@ -122,7 +122,7 @@ router.get('/contacts/:id', async (req, res) => {
 router.post('/contacts', async (req, res) => {
     try {
         const { name, phone, email, group, status = 'active' } = req.body;
-        
+
         if (!name || !phone) {
             return res.status(400).json({
                 error: 'Bad request',
@@ -224,9 +224,9 @@ router.patch('/contacts/:id/toggle-status', async (req, res) => {
     try {
         const { id } = req.params;
         const Contact = require('../models/Contact');
-        const contact = await Contact.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const contact = await Contact.findOne({
+            _id: id,
+            createdBy: req.externalUser
         });
 
         if (!contact) {
@@ -258,9 +258,9 @@ router.get('/contacts/search', async (req, res) => {
     try {
         const { q, group, status } = req.query;
         const Contact = require('../models/Contact');
-        
+
         let query = { createdBy: req.externalUser };
-        
+
         if (q) {
             query.$or = [
                 { name: { $regex: q, $options: 'i' } },
@@ -268,7 +268,7 @@ router.get('/contacts/search', async (req, res) => {
                 { phone: { $regex: q, $options: 'i' } }
             ];
         }
-        
+
         if (group) query.group = group;
         if (status) query.status = status;
 
@@ -296,20 +296,20 @@ router.get('/contacts/search', async (req, res) => {
 router.get('/workflows', async (req, res) => {
     try {
         const Workflow = require('../models/Workflow');
-        const workflows = await Workflow.find({ 
-            createdBy: req.externalUser 
+        const workflows = await Workflow.find({
+            createdBy: req.externalUser
         }).select('-__v');
-        
-        res.json({ 
+
+        res.json({
             success: true,
             data: { workflows },
             count: workflows.length
         });
     } catch (error) {
         console.error('External workflows error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
-            message: 'Failed to fetch workflows' 
+            message: 'Failed to fetch workflows'
         });
     }
 });
@@ -319,9 +319,9 @@ router.get('/workflows/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const Workflow = require('../models/Workflow');
-        const workflow = await Workflow.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const workflow = await Workflow.findOne({
+            _id: id,
+            createdBy: req.externalUser
         }).select('-__v');
 
         if (!workflow) {
@@ -348,7 +348,7 @@ router.get('/workflows/:id', async (req, res) => {
 router.post('/workflows', async (req, res) => {
     try {
         const { name, description, steps, status = 'active' } = req.body;
-        
+
         if (!name) {
             return res.status(400).json({
                 error: 'Bad request',
@@ -452,20 +452,20 @@ router.delete('/workflows/:id', async (req, res) => {
 router.get('/groups', async (req, res) => {
     try {
         const TelegramGroup = require('../models/TelegramGroup');
-        const groups = await TelegramGroup.find({ 
-            createdBy: req.externalUser 
+        const groups = await TelegramGroup.find({
+            createdBy: req.externalUser
         }).select('-__v');
-        
-        res.json({ 
+
+        res.json({
             success: true,
             data: { groups },
             count: groups.length
         });
     } catch (error) {
         console.error('External groups error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
-            message: 'Failed to fetch groups' 
+            message: 'Failed to fetch groups'
         });
     }
 });
@@ -475,9 +475,9 @@ router.get('/groups/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const TelegramGroup = require('../models/TelegramGroup');
-        const group = await TelegramGroup.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const group = await TelegramGroup.findOne({
+            _id: id,
+            createdBy: req.externalUser
         }).select('-__v');
 
         if (!group) {
@@ -504,7 +504,7 @@ router.get('/groups/:id', async (req, res) => {
 router.post('/groups', async (req, res) => {
     try {
         const { name, chatId, description, status = 'active' } = req.body;
-        
+
         if (!name || !chatId) {
             return res.status(400).json({
                 error: 'Bad request',
@@ -608,20 +608,20 @@ router.delete('/groups/:id', async (req, res) => {
 router.get('/filters', async (req, res) => {
     try {
         const MessageFilter = require('../models/MessageFilter');
-        const filters = await MessageFilter.find({ 
-            createdBy: req.externalUser 
+        const filters = await MessageFilter.find({
+            createdBy: req.externalUser
         }).select('-__v');
-        
-        res.json({ 
+
+        res.json({
             success: true,
             data: { filters },
             count: filters.length
         });
     } catch (error) {
         console.error('External filters error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
-            message: 'Failed to fetch filters' 
+            message: 'Failed to fetch filters'
         });
     }
 });
@@ -631,9 +631,9 @@ router.get('/filters/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const MessageFilter = require('../models/MessageFilter');
-        const filter = await MessageFilter.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const filter = await MessageFilter.findOne({
+            _id: id,
+            createdBy: req.externalUser
         }).select('-__v');
 
         if (!filter) {
@@ -659,26 +659,24 @@ router.get('/filters/:id', async (req, res) => {
 // Create a new filter (external)
 router.post('/filters', async (req, res) => {
     try {
-        const { 
-            filterName, 
-            filterType, 
-            filterValue, 
-            groupId, 
-            workflowId, 
+        const {
+            filterType,
+            filterValue,
+            groupId,
+            workflowId,
             priority = 0,
-            isActive = true 
+            isActive = true
         } = req.body;
-        
-        if (!filterName || !filterType || !filterValue) {
+
+        if (!filterType || !filterValue) {
             return res.status(400).json({
                 error: 'Bad request',
-                message: 'Filter name, type, and value are required'
+                message: 'Filter type and value are required'
             });
         }
 
         const MessageFilter = require('../models/MessageFilter');
         const filter = await MessageFilter.create({
-            filterName,
             filterType,
             filterValue,
             groupId,
@@ -772,21 +770,21 @@ router.get('/filters/group/:groupId', async (req, res) => {
     try {
         const { groupId } = req.params;
         const MessageFilter = require('../models/MessageFilter');
-        const filters = await MessageFilter.find({ 
+        const filters = await MessageFilter.find({
             groupId,
-            createdBy: req.externalUser 
+            createdBy: req.externalUser
         }).select('-__v');
-        
-        res.json({ 
+
+        res.json({
             success: true,
             data: { filters },
             count: filters.length
         });
     } catch (error) {
         console.error('External filters by group error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
-            message: 'Failed to fetch filters' 
+            message: 'Failed to fetch filters'
         });
     }
 });
@@ -799,20 +797,20 @@ router.get('/filters/group/:groupId', async (req, res) => {
 router.get('/webhooks', async (req, res) => {
     try {
         const Webhook = require('../models/Webhook');
-        const webhooks = await Webhook.find({ 
-            createdBy: req.externalUser 
+        const webhooks = await Webhook.find({
+            createdBy: req.externalUser
         }).select('-__v');
-        
-        res.json({ 
+
+        res.json({
             success: true,
             data: { webhooks },
             count: webhooks.length
         });
     } catch (error) {
         console.error('External webhooks error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
-            message: 'Failed to fetch webhooks' 
+            message: 'Failed to fetch webhooks'
         });
     }
 });
@@ -822,9 +820,9 @@ router.get('/webhooks/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const Webhook = require('../models/Webhook');
-        const webhook = await Webhook.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const webhook = await Webhook.findOne({
+            _id: id,
+            createdBy: req.externalUser
         }).select('-__v');
 
         if (!webhook) {
@@ -850,17 +848,17 @@ router.get('/webhooks/:id', async (req, res) => {
 // Create a new webhook (external)
 router.post('/webhooks', async (req, res) => {
     try {
-        const { 
-            url, 
-            method = 'POST', 
-            entityType = 'all', 
-            events = [], 
+        const {
+            url,
+            method = 'POST',
+            entityType = 'all',
+            events = [],
             enabled = true,
             description,
             payload,
             headers = {}
         } = req.body;
-        
+
         if (!url) {
             return res.status(400).json({
                 error: 'Bad request',
@@ -968,10 +966,10 @@ router.delete('/webhooks/:id', async (req, res) => {
 router.get('/logs', async (req, res) => {
     try {
         const { limit = 50, offset = 0, status, workflowId, groupId } = req.query;
-        
+
         const MessageLog = require('../models/MessageLog');
         let query = { createdBy: req.externalUser };
-        
+
         if (status) query.status = status;
         if (workflowId) query.workflowId = workflowId;
         if (groupId) query.groupId = groupId;
@@ -1008,9 +1006,9 @@ router.get('/logs/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const MessageLog = require('../models/MessageLog');
-        const log = await MessageLog.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const log = await MessageLog.findOne({
+            _id: id,
+            createdBy: req.externalUser
         }).select('-__v');
 
         if (!log) {
@@ -1038,13 +1036,13 @@ router.get('/logs/workflow/:workflowId', async (req, res) => {
     try {
         const { workflowId } = req.params;
         const { limit = 50, offset = 0, status } = req.query;
-        
+
         const MessageLog = require('../models/MessageLog');
-        let query = { 
-            workflowId, 
-            createdBy: req.externalUser 
+        let query = {
+            workflowId,
+            createdBy: req.externalUser
         };
-        
+
         if (status) query.status = status;
 
         const logs = await MessageLog.find(query)
@@ -1079,11 +1077,11 @@ router.get('/logs/status/:status', async (req, res) => {
     try {
         const { status } = req.params;
         const { limit = 50, offset = 0 } = req.query;
-        
+
         const MessageLog = require('../models/MessageLog');
-        const query = { 
-            status, 
-            createdBy: req.externalUser 
+        const query = {
+            status,
+            createdBy: req.externalUser
         };
 
         const logs = await MessageLog.find(query)
@@ -1121,20 +1119,20 @@ router.get('/logs/status/:status', async (req, res) => {
 router.get('/actions', async (req, res) => {
     try {
         const Action = require('../models/Action');
-        const actions = await Action.find({ 
-            createdBy: req.externalUser 
+        const actions = await Action.find({
+            createdBy: req.externalUser
         }).select('-__v');
-        
-        res.json({ 
+
+        res.json({
             success: true,
             data: { actions },
             count: actions.length
         });
     } catch (error) {
         console.error('External actions error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
-            message: 'Failed to fetch actions' 
+            message: 'Failed to fetch actions'
         });
     }
 });
@@ -1144,9 +1142,9 @@ router.get('/actions/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const Action = require('../models/Action');
-        const action = await Action.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const action = await Action.findOne({
+            _id: id,
+            createdBy: req.externalUser
         }).select('-__v');
 
         if (!action) {
@@ -1173,7 +1171,7 @@ router.get('/actions/:id', async (req, res) => {
 router.post('/actions', async (req, res) => {
     try {
         const { type, data, status = 'pending' } = req.body;
-        
+
         if (!type) {
             return res.status(400).json({
                 error: 'Bad request',
@@ -1208,9 +1206,9 @@ router.post('/actions/:id/execute', async (req, res) => {
     try {
         const { id } = req.params;
         const Action = require('../models/Action');
-        const action = await Action.findOne({ 
-            _id: id, 
-            createdBy: req.externalUser 
+        const action = await Action.findOne({
+            _id: id,
+            createdBy: req.externalUser
         });
 
         if (!action) {
@@ -1252,14 +1250,14 @@ router.post('/actions/:id/execute', async (req, res) => {
 // Send bulk message (external)
 router.post('/bulk-messages', async (req, res) => {
     try {
-        const { 
-            message, 
-            contactIds = [], 
-            groupIds = [], 
+        const {
+            message,
+            contactIds = [],
+            groupIds = [],
             workflowId,
-            scheduledAt 
+            scheduledAt
         } = req.body;
-        
+
         if (!message) {
             return res.status(400).json({
                 error: 'Bad request',
@@ -1308,10 +1306,10 @@ router.get('/bulk-messages/:actionId', async (req, res) => {
     try {
         const { actionId } = req.params;
         const Action = require('../models/Action');
-        const action = await Action.findOne({ 
-            _id: actionId, 
+        const action = await Action.findOne({
+            _id: actionId,
             type: 'bulk-message',
-            createdBy: req.externalUser 
+            createdBy: req.externalUser
         }).select('-__v');
 
         if (!action) {
@@ -1342,19 +1340,19 @@ router.get('/bulk-messages/:actionId', async (req, res) => {
 router.get('/system-status', async (req, res) => {
     try {
         const SystemStatus = require('../models/SystemStatus');
-        const status = await SystemStatus.findOne({ 
-            createdBy: req.externalUser 
+        const status = await SystemStatus.findOne({
+            createdBy: req.externalUser
         }).select('-__v');
-        
-        res.json({ 
+
+        res.json({
             success: true,
             data: { status }
         });
     } catch (error) {
         console.error('External system status error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Internal server error',
-            message: 'Failed to fetch system status' 
+            message: 'Failed to fetch system status'
         });
     }
 });
@@ -1363,7 +1361,7 @@ router.get('/system-status', async (req, res) => {
 router.put('/system-status', async (req, res) => {
     try {
         const { status, details } = req.body;
-        
+
         if (!status) {
             return res.status(400).json({
                 error: 'Bad request',
@@ -1372,8 +1370,8 @@ router.put('/system-status', async (req, res) => {
         }
 
         const SystemStatus = require('../models/SystemStatus');
-        let systemStatus = await SystemStatus.findOne({ 
-            createdBy: req.externalUser 
+        let systemStatus = await SystemStatus.findOne({
+            createdBy: req.externalUser
         });
 
         if (systemStatus) {
@@ -1411,11 +1409,11 @@ router.put('/system-status', async (req, res) => {
 router.get('/notifications', async (req, res) => {
     try {
         const { limit = 50, offset = 0, read } = req.query;
-        
+
         // Since we don't have a Notification model, we'll return a placeholder
         // In a real implementation, you would query the actual notifications
         const notifications = [];
-        
+
         res.json({
             success: true,
             data: { notifications },
@@ -1440,7 +1438,7 @@ router.get('/notifications', async (req, res) => {
 router.patch('/notifications/:id/read', async (req, res) => {
     try {
         const { id } = req.params;
-        
+
         // Placeholder implementation
         res.json({
             success: true,

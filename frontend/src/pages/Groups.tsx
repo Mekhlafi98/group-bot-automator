@@ -11,10 +11,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Plus, Edit, Trash2, Users, MessageSquare, User, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Users, MessageSquare, User, Search, MoreHorizontal } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api/api";
 import { useToast } from "@/hooks/use-toast";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface Contact {
   _id: string;
@@ -53,6 +55,7 @@ const Groups = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
 
   // Fetch groups
   const { data: groups = [], isLoading, error } = useQuery({
@@ -179,6 +182,23 @@ const Groups = () => {
 
   const handleDelete = (id: string) => {
     deleteGroupMutation.mutate(id);
+  };
+
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedGroups(filteredGroups.map(group => group._id));
+    } else {
+      setSelectedGroups([]);
+    }
+  };
+
+  const handleSelectGroup = (groupId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedGroups(prev => [...prev, groupId]);
+    } else {
+      setSelectedGroups(prev => prev.filter(id => id !== groupId));
+    }
   };
 
   if (isLoading) {
@@ -384,88 +404,109 @@ const Groups = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredGroups.map((group) => (
-          <Card key={group._id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{group.title}</CardTitle>
-                <Badge variant={group.isActive ? "default" : "secondary"}>
-                  {group.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-              <CardDescription>ID: {group.chatId}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm capitalize">{group.type}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">Chat ID: {group.chatId}</span>
-                </div>
-                {group.welcome_message && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Welcome Message:</span>
-                    <span className="text-sm text-gray-600">{group.welcome_message}</span>
-                  </div>
-                )}
-                {group.contacts && group.contacts.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">Contacts: </span>
-                    <div className="flex flex-wrap gap-1">
-                      {group.contacts.map((contactId) => {
-                        const contact = Array.isArray(contacts) ? contacts.find(c => c._id === contactId) : undefined;
-                        return contact ? (
-                          <Badge key={contactId} variant="outline" className="text-xs">
-                            {contact.name}
+      {/* DataTable */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <input
+                    type="checkbox"
+                    checked={selectedGroups.length === filteredGroups.length && filteredGroups.length > 0}
+                    onChange={e => handleSelectAll(e.target.checked)}
+                    aria-label="Select all"
+                  />
+                </TableHead>
+                <TableHead>Group Name</TableHead>
+                <TableHead>Chat ID</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Contacts</TableHead>
+                <TableHead>Created At</TableHead>
+                <TableHead className="w-12">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredGroups.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No groups found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredGroups.map((group) => (
+                  <TableRow key={group._id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedGroups.includes(group._id)}
+                        onChange={e => handleSelectGroup(group._id, e.target.checked)}
+                        aria-label={`Select ${group.title}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{group.title}</TableCell>
+                    <TableCell className="font-mono text-sm">{group.chatId}</TableCell>
+                    <TableCell className="capitalize">{group.type}</TableCell>
+                    <TableCell>
+                      <Badge variant={group.isActive ? "default" : "secondary"}>
+                        {group.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {group.contacts && group.contacts.length > 0 ? (
+                          group.contacts.slice(0, 2).map((contactId) => {
+                            const contact = Array.isArray(contacts) ? contacts.find(c => c._id === contactId) : undefined;
+                            return contact ? (
+                              <Badge key={contactId} variant="outline" className="text-xs">
+                                {contact.name}
+                              </Badge>
+                            ) : null;
+                          })
+                        ) : (
+                          <span className="text-xs text-muted-foreground">None</span>
+                        )}
+                        {group.contacts && group.contacts.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{group.contacts.length - 2}
                           </Badge>
-                        ) : null;
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEdit(group)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Group</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{group.title}"? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDelete(group._id)}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(group.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(group)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(group._id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Edit Dialog */}
       <Dialog open={!!editingGroup} onOpenChange={() => setEditingGroup(null)}>

@@ -79,11 +79,11 @@ async function getFiltersByGroup(req, res) {
 // Create new filter
 async function createFilter(req, res) {
     try {
-        const { groupId, workflowId, channelId, filterName, filterType, filterValue, priority, aiPrompt, support } = req.body;
+        const { groupId, workflowId, channelId, filterType, filterValue, priority, aiPrompt, support } = req.body;
 
-        if (!channelId || !filterName || !filterType || !filterValue) {
+        if (!channelId || !filterType || !filterValue) {
             return res.status(400).json({
-                message: 'Channel ID, Filter Name, Filter Type, and Filter Value are required'
+                message: 'Channel ID, Filter Type, and Filter Value are required'
             });
         }
 
@@ -141,7 +141,6 @@ async function createFilter(req, res) {
             groupId: groupId || [],
             workflowId: workflowId || null,
             channelId,
-            filterName,
             filterType,
             filterValue,
             priority: priority || 0,
@@ -169,7 +168,7 @@ async function createFilter(req, res) {
 async function updateFilter(req, res) {
     try {
         const { id } = req.params;
-        const { groupId, workflowId, channelId, filterName, filterType, filterValue, isActive, priority, aiPrompt, support } = req.body;
+        const { groupId, workflowId, channelId, filterType, filterValue, isActive, priority, aiPrompt, support } = req.body;
 
         const filter = await MessageFilter.findOne({
             _id: id,
@@ -222,7 +221,6 @@ async function updateFilter(req, res) {
             filter.channelId = channelId;
         }
 
-        if (filterName !== undefined) filter.filterName = filterName;
         if (filterType !== undefined) filter.filterType = filterType;
         if (filterValue !== undefined) filter.filterValue = filterValue;
         if (isActive !== undefined) filter.isActive = isActive;
