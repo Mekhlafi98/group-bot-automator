@@ -64,11 +64,12 @@ const setupInterceptors = (apiInstance: AxiosInstance) => {
 
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) {
-          // No refresh token available, redirect to login
+          // No refresh token available, clear tokens and let the auth context handle redirect
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           accessToken = null;
-          window.location.href = '/login';
+          // Dispatch a custom event to notify the auth context
+          window.dispatchEvent(new CustomEvent('auth:token-expired'));
           return Promise.reject(error);
         }
 
@@ -96,11 +97,12 @@ const setupInterceptors = (apiInstance: AxiosInstance) => {
             throw new Error('Invalid response from refresh token endpoint');
           }
         } catch (err) {
-          // Refresh failed, clear tokens and redirect to login
+          // Refresh failed, clear tokens and let the auth context handle redirect
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('accessToken');
           accessToken = null;
-          window.location.href = '/login';
+          // Dispatch a custom event to notify the auth context
+          window.dispatchEvent(new CustomEvent('auth:token-expired'));
           return Promise.reject(err);
         }
       }

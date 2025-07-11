@@ -6,6 +6,10 @@ const contactSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
+    contact_uid: {
+        type: String,
+        trim: true,
+    },
     number: {
         type: String,
         required: true,

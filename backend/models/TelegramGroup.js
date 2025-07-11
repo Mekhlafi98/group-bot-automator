@@ -27,6 +27,10 @@ const telegramGroupSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Contact',
     }],
+    welcome_message: {
+        type: String,
+        trim: true,
+    },
 }, {
     timestamps: true,
     versionKey: false,

@@ -3,9 +3,9 @@ const WhatsAppChannel = require('../models/WhatsAppChannel');
 // Create a new channel
 exports.createChannel = async (req, res) => {
   try {
-    const { phone, secret, token, status, qr } = req.body;
+    const { phone, type, webhook_url, secret, token, status, qr } = req.body;
     const createdBy = req.user._id;
-    const channel = await WhatsAppChannel.create({ phone, secret, token, status, qr, createdBy });
+    const channel = await WhatsAppChannel.create({ phone, type, webhook_url, secret, token, status, qr, createdBy });
     res.status(201).json(channel);
   } catch (err) {
     res.status(400).json({ error: err.message });

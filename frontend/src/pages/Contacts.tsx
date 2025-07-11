@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2, User, Phone, Ban, CheckCircle, XCircle, Search } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Plus, Edit, Trash2, User, Phone, Ban, CheckCircle, XCircle, Search, MoreHorizontal, Filter, Download, Upload } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api/api";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Contact {
     _id: string;
     name: string;
+    contact_uid?: string;
     number: string;
     isActive: boolean;
     isBlocked: boolean;
@@ -28,8 +32,10 @@ const Contacts = () => {
     const [editingContact, setEditingContact] = useState<Contact | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [showActiveOnly, setShowActiveOnly] = useState(true);
+    const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
     const [formData, setFormData] = useState({
         name: "",
+        contact_uid: "",
         number: "",
         notes: "",
         isActive: true,
@@ -58,6 +64,106 @@ const Contacts = () => {
     // Filter contacts based on active status
     const filteredContacts = showActiveOnly ? contacts.filter(contact => contact.isActive) : contacts;
 
+    // Selection handlers
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedContacts(filteredContacts.map(contact => contact._id));
+        } else {
+            setSelectedContacts([]);
+        }
+    };
+
+    const handleSelectContact = (contactId: string, checked: boolean) => {
+        if (checked) {
+            setSelectedContacts(prev => [...prev, contactId]);
+        } else {
+            setSelectedContacts(prev => prev.filter(id => id !== contactId));
+        }
+    };
+
+    // Bulk actions
+    const handleBulkDelete = async () => {
+        if (selectedContacts.length === 0) return;
+
+        try {
+            await Promise.all(selectedContacts.map(id => api.delete(`/contacts/${id}`)));
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            setSelectedContacts([]);
+            toast({
+                title: "Success",
+                description: `${selectedContacts.length} contact(s) deleted successfully`,
+                variant: "default"
+            });
+        } catch (error: any) {
+            toast({
+                title: "Error",
+                description: error.response?.data?.message || "Failed to delete contacts",
+                variant: "destructive"
+            });
+        }
+    };
+
+    const handleBulkToggleBlocked = async (blocked: boolean) => {
+        if (selectedContacts.length === 0) return;
+
+        try {
+            await Promise.all(selectedContacts.map(id =>
+                api.patch(`/contacts/${id}/toggle-status`, {
+                    field: 'isBlocked',
+                    value: blocked
+                })
+            ));
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            setSelectedContacts([]);
+            toast({
+                title: "Success",
+                description: `${selectedContacts.length} contact(s) ${blocked ? 'blocked' : 'unblocked'} successfully`,
+                variant: "default"
+            });
+        } catch (error: any) {
+            toast({
+                title: "Error",
+                description: error.response?.data?.message || "Failed to update contacts",
+                variant: "destructive"
+            });
+        }
+    };
+
+    const handleBulkExport = () => {
+        if (selectedContacts.length === 0) return;
+
+        const selectedContactData = filteredContacts.filter(contact =>
+            selectedContacts.includes(contact._id)
+        );
+
+        const csvContent = [
+            ['Name', 'Contact UID', 'Number', 'Status', 'Blocked', 'Notes', 'Created At'],
+            ...selectedContactData.map(contact => [
+                contact.name,
+                contact.contact_uid || '',
+                contact.number,
+                contact.isActive ? 'Active' : 'Inactive',
+                contact.isBlocked ? 'Yes' : 'No',
+                contact.notes || '',
+                new Date(contact.createdAt).toLocaleDateString()
+            ])
+        ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `contacts-export-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        toast({
+            title: "Success",
+            description: `${selectedContacts.length} contact(s) exported successfully`,
+            variant: "default"
+        });
+    };
+
     // Create contact mutation
     const createContactMutation = useMutation({
         mutationFn: async (data: Omit<Contact, '_id' | 'createdAt' | 'updatedAt'>) => {
@@ -67,7 +173,7 @@ const Contacts = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['contacts'] });
             setIsCreateDialogOpen(false);
-            setFormData({ name: "", number: "", notes: "", isActive: true, isBlocked: false });
+            setFormData({ name: "", contact_uid: "", number: "", notes: "", isActive: true, isBlocked: false });
             toast({
                 title: "Success",
                 description: "Contact created successfully",
@@ -92,7 +198,7 @@ const Contacts = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['contacts'] });
             setEditingContact(null);
-            setFormData({ name: "", number: "", notes: "", isActive: true, isBlocked: false });
+            setFormData({ name: "", contact_uid: "", number: "", notes: "", isActive: true, isBlocked: false });
             toast({
                 title: "Success",
                 description: "Contact updated successfully",
@@ -176,6 +282,7 @@ const Contacts = () => {
         setEditingContact(contact);
         setFormData({
             name: contact.name,
+            contact_uid: contact.contact_uid || "",
             number: contact.number,
             notes: contact.notes || "",
             isActive: contact.isActive,
@@ -224,20 +331,6 @@ const Contacts = () => {
                         Manage your contact list for the bot
                     </p>
                 </div>
-                <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                        <input
-                            type="checkbox"
-                            id="showActiveOnly"
-                            checked={showActiveOnly}
-                            onChange={(e) => setShowActiveOnly(e.target.checked)}
-                            className="rounded"
-                        />
-                        <Label htmlFor="showActiveOnly" className="text-sm">
-                            Show Active Only
-                        </Label>
-                    </div>
-                </div>
                 <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                     <DialogTrigger asChild>
                         <Button>
@@ -261,6 +354,15 @@ const Contacts = () => {
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                     placeholder="Enter contact name"
                                     required
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="contact_uid">Contact UID (Optional)</Label>
+                                <Input
+                                    id="contact_uid"
+                                    value={formData.contact_uid}
+                                    onChange={(e) => setFormData({ ...formData, contact_uid: e.target.value })}
+                                    placeholder="Enter contact UID"
                                 />
                             </div>
                             <div>
@@ -296,97 +398,177 @@ const Contacts = () => {
                 </Dialog>
             </div>
 
-            {/* Search Bar */}
-            <div className="flex items-center space-x-2">
-                <form onSubmit={handleSearch} className="flex-1">
-                    <div className="relative">
+            {/* Search and Filters */}
+            <div className="flex items-center justify-between space-x-4">
+                <div className="flex items-center space-x-4 flex-1">
+                    <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                         <Input
-                            placeholder="Search contacts by name, number, or notes..."
+                            placeholder="Search contacts..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-10"
                         />
                     </div>
-                </form>
+                    <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id="showActiveOnly"
+                            checked={showActiveOnly}
+                            onCheckedChange={(checked) => setShowActiveOnly(checked as boolean)}
+                        />
+                        <Label htmlFor="showActiveOnly" className="text-sm">
+                            Show Active Only
+                        </Label>
+                    </div>
+                </div>
+
+                {/* Bulk Actions */}
+                {selectedContacts.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                        <span className="text-sm text-muted-foreground">
+                            {selectedContacts.length} selected
+                        </span>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                    Actions
+                                    <MoreHorizontal className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={handleBulkExport}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Export Selected
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleBulkToggleBlocked(false)}>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Unblock Selected
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleBulkToggleBlocked(true)}>
+                                    <Ban className="mr-2 h-4 w-4" />
+                                    Block Selected
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    onClick={handleBulkDelete}
+                                    className="text-red-600"
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Selected
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                )}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredContacts.map((contact) => (
-                    <Card key={contact._id}>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg">{contact.name}</CardTitle>
-                                <div className="flex gap-1">
-                                    <Badge variant={contact.isActive ? "default" : "secondary"}>
-                                        {contact.isActive ? "Active" : "Inactive"}
-                                    </Badge>
-                                    {contact.isBlocked && (
-                                        <Badge variant="destructive">
-                                            Blocked
-                                        </Badge>
-                                    )}
-                                </div>
-                            </div>
-                            <CardDescription>
-                                {contact.number}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-3">
-                                {contact.notes && (
-                                    <div className="flex items-start gap-2">
-                                        <span className="text-sm text-muted-foreground">Notes:</span>
-                                        <span className="text-sm">{contact.notes}</span>
-                                    </div>
-                                )}
-                                <div className="flex items-center gap-2 pt-2">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleToggleBlocked(contact._id)}
-                                        disabled={toggleBlockedMutation.isPending}
-                                    >
-                                        {contact.isBlocked ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
-                                        {contact.isBlocked ? "Unblock" : "Block"}
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleEdit(contact)}
-                                    >
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button size="sm" variant="outline" className="text-red-600">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Delete Contact</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Are you sure you want to delete "{contact.name}"? This action cannot be undone.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction
-                                                    onClick={() => handleDelete(contact._id)}
-                                                    className="bg-red-600 hover:bg-red-700"
-                                                >
-                                                    Delete
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+            {/* Data Table */}
+            <Card>
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-12">
+                                    <Checkbox
+                                        checked={selectedContacts.length === filteredContacts.length && filteredContacts.length > 0}
+                                        onCheckedChange={handleSelectAll}
+                                        aria-label="Select all"
+                                    />
+                                </TableHead>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Contact UID</TableHead>
+                                <TableHead>Phone Number</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Notes</TableHead>
+                                <TableHead>Created</TableHead>
+                                <TableHead className="w-12">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredContacts.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                        No contacts found
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                filteredContacts.map((contact) => (
+                                    <TableRow key={contact._id}>
+                                        <TableCell>
+                                            <Checkbox
+                                                checked={selectedContacts.includes(contact._id)}
+                                                onCheckedChange={(checked) => handleSelectContact(contact._id, checked as boolean)}
+                                                aria-label={`Select ${contact.name}`}
+                                            />
+                                        </TableCell>
+                                        <TableCell className="font-medium">{contact.name}</TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {contact.contact_uid || '-'}
+                                        </TableCell>
+                                        <TableCell className="font-mono text-sm">{contact.number}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center space-x-2">
+                                                <Badge variant={contact.isActive ? "default" : "secondary"}>
+                                                    {contact.isActive ? "Active" : "Inactive"}
+                                                </Badge>
+                                                {contact.isBlocked && (
+                                                    <Badge variant="destructive">
+                                                        Blocked
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="max-w-xs truncate">
+                                            {contact.notes || '-'}
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {new Date(contact.createdAt).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="sm">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => handleEdit(contact)}>
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        Edit
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleToggleBlocked(contact._id)}>
+                                                        {contact.isBlocked ? (
+                                                            <>
+                                                                <CheckCircle className="mr-2 h-4 w-4" />
+                                                                Unblock
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Ban className="mr-2 h-4 w-4" />
+                                                                Block
+                                                            </>
+                                                        )}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleDelete(contact._id)}
+                                                        className="text-red-600"
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Delete
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
             {/* Edit Dialog */}
             <Dialog open={!!editingContact} onOpenChange={() => setEditingContact(null)}>
@@ -409,6 +591,15 @@ const Contacts = () => {
                             />
                         </div>
                         <div>
+                            <Label htmlFor="edit-contact_uid">Contact UID (Optional)</Label>
+                            <Input
+                                id="edit-contact_uid"
+                                value={formData.contact_uid}
+                                onChange={(e) => setFormData({ ...formData, contact_uid: e.target.value })}
+                                placeholder="Enter contact UID"
+                            />
+                        </div>
+                        <div>
                             <Label htmlFor="edit-number">Phone Number</Label>
                             <Input
                                 id="edit-number"
@@ -427,28 +618,6 @@ const Contacts = () => {
                                 placeholder="Add any notes about this contact"
                                 rows={3}
                             />
-                        </div>
-                        <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="edit-isActive"
-                                    checked={formData.isActive}
-                                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                                    className="rounded"
-                                />
-                                <Label htmlFor="edit-isActive">Active</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="edit-isBlocked"
-                                    checked={formData.isBlocked}
-                                    onChange={(e) => setFormData({ ...formData, isBlocked: e.target.checked })}
-                                    className="rounded"
-                                />
-                                <Label htmlFor="edit-isBlocked">Blocked</Label>
-                            </div>
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setEditingContact(null)}>

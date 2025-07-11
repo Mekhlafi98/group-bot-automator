@@ -29,6 +29,8 @@ export default function Channels() {
   // Unified model for all channel/session data
   const [model, setModel] = useState({
     phone: '',
+    type: 'whatsapp',
+    webhook_url: '',
     secret: DEFAULT_SECRET,
     token: '',
     qr: '',
@@ -44,6 +46,7 @@ export default function Channels() {
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const [debugInfo, setDebugInfo] = useState({ wppToken: '', backendToken: '' });
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
 
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
@@ -56,6 +59,8 @@ export default function Channels() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
     phone: '',
+    type: 'whatsapp',
+    webhook_url: '',
     secret: DEFAULT_SECRET,
   });
 
@@ -69,6 +74,8 @@ export default function Channels() {
     try {
       await api.put(`/channels/${editModel._id}`, {
         phone: editModel.phone,
+        type: editModel.type,
+        webhook_url: editModel.webhook_url,
         secret: editModel.secret,
       });
       setEditOpen(false);
@@ -104,10 +111,12 @@ export default function Channels() {
     try {
       await api.post('/channels', {
         phone: createForm.phone,
+        type: createForm.type,
+        webhook_url: createForm.webhook_url,
         secret: createForm.secret,
       });
       setIsCreateDialogOpen(false);
-      setCreateForm({ phone: '', secret: DEFAULT_SECRET });
+      setCreateForm({ phone: '', type: 'whatsapp', webhook_url: '', secret: DEFAULT_SECRET });
       // Refresh list
       const res = await api.get('/channels');
       setConnections(res.data);
@@ -193,6 +202,10 @@ export default function Channels() {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
+        body: JSON.stringify({
+          webhook: model.webhook_url || "",
+          waitQrCode: false
+        }),
       });
       const data = await res.json();
       console.log('Start session response:', data); // <-- log the full response
@@ -259,6 +272,8 @@ export default function Channels() {
           if (!connections.some(c => c.phone === model.phone)) {
             await api.post('/channels', {
               phone: model.phone,
+              type: model.type,
+              webhook_url: model.webhook_url,
               secret: model.secret,
               token: model.token,
               status: model.status,
@@ -311,6 +326,77 @@ export default function Channels() {
     }
   };
 
+  // Status polling for all channels
+  useEffect(() => {
+    if (connections.length === 0) return;
+
+    const pollAllStatuses = async () => {
+      const updatedConnections = await Promise.all(
+        connections.map(async (channel) => {
+          if (!channel.token) return channel;
+
+          try {
+            const res = await fetch(`${API_BASE}/${channel.phone}/status-session`, {
+              headers: {
+                Authorization: `Bearer ${channel.token}`,
+                Accept: 'application/json',
+              },
+            });
+            const data = await res.json();
+
+            if (data.status) {
+              return { ...channel, status: data.status };
+            }
+          } catch (err) {
+            console.error(`Error polling status for ${channel.phone}:`, err);
+          }
+          return channel;
+        })
+      );
+
+      setConnections(updatedConnections);
+    };
+
+    pollAllStatuses();
+    const interval = setInterval(pollAllStatuses, 10000); // Poll every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [connections.length]);
+
+  // Filter channels based on active status
+  const filteredConnections = showActiveOnly
+    ? connections.filter(channel => channel.status === 'CONNECTED')
+    : connections;
+
+  // Disconnect channel
+  const handleDisconnect = async (channel: any) => {
+    if (!channel.token) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/${channel.phone}/logout-session`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${channel.token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        // Update local status
+        setConnections(prev =>
+          prev.map(c =>
+            c._id === channel._id
+              ? { ...c, status: 'DISCONNECTED' }
+              : c
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Error disconnecting channel:', err);
+    }
+  };
+
   // Stepper UI
   const Stepper = () => (
     <div className="flex items-center justify-between mb-8">
@@ -335,9 +421,18 @@ export default function Channels() {
     <Card className="p-4 mb-8">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Your Channels</h2>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          Add Channel
-        </Button>
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="showActiveOnly"
+            checked={showActiveOnly}
+            onChange={(e) => setShowActiveOnly(e.target.checked)}
+            className="rounded"
+          />
+          <Label htmlFor="showActiveOnly" className="text-sm">
+            Show Connected Only
+          </Label>
+        </div>
       </div>
       {connectionsLoading ? (
         <div>Loading...</div>
@@ -345,32 +440,42 @@ export default function Channels() {
         <div className="text-gray-500 text-sm">No channels found.</div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full text-xs border">
+          <table className="min-w-full text-sm border">
             <thead>
               <tr className="bg-gray-100">
                 <th className="px-2 py-1 text-left">Phone</th>
+                <th className="px-2 py-1 text-left">Type</th>
                 <th className="px-2 py-1 text-left">Status</th>
-                <th className="px-2 py-1 text-left">Created At</th>
-                <th className="px-2 py-1 text-left">QR</th>
                 <th className="px-2 py-1 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {connections.map((c) => (
+              {filteredConnections.map((c) => (
                 <tr key={c._id} className="border-b">
                   <td className="px-2 py-1 font-mono">{c.phone}</td>
                   <td className="px-2 py-1">
+                    <Badge variant={c.type === 'whatsapp' ? 'default' : 'secondary'}>
+                      {c.type === 'whatsapp' ? 'WhatsApp' : 'Telegram'}
+                    </Badge>
+                  </td>
+                  <td className="px-2 py-1">
                     <span className={`inline-block w-2 h-2 rounded-full mr-1 align-middle ${statusColors[c.status] || 'bg-gray-400'}`}></span>
                     <span className="align-middle">{c.status === 'QRCODE' ? 'QR Code Required' : c.status}</span>
-                  </td>
-                  <td className="px-2 py-1 text-gray-500">{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</td>
-                  <td className="px-2 py-1">
-                    {c.qr && <img src={c.qr} alt="QR Code" className="w-12 h-12 border rounded bg-white" />}
                   </td>
                   <td className="px-2 py-1">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(c)} className="mr-2">
                       <Pencil size={14} />
                     </Button>
+                    {c.status === 'CONNECTED' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDisconnect(c)}
+                        className="mr-2 text-orange-600 hover:text-orange-800"
+                      >
+                        Disconnect
+                      </Button>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button size="sm" variant="outline" className="text-red-600">
@@ -407,13 +512,29 @@ export default function Channels() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Channel</DialogTitle>
-            <DialogDescription>Update the session name or secret for this channel.</DialogDescription>
+            <DialogDescription>Update the channel information.</DialogDescription>
           </DialogHeader>
           {editModel && (
             <form onSubmit={e => { e.preventDefault(); handleEditSave(); }} className="space-y-4">
               <div>
                 <Label htmlFor="edit-phone">Phone</Label>
                 <Input id="edit-phone" value={editModel.phone} onChange={e => setEditModel((m: any) => ({ ...m, phone: e.target.value }))} required />
+              </div>
+              <div>
+                <Label htmlFor="edit-type">Channel Type</Label>
+                <select
+                  id="edit-type"
+                  value={editModel.type}
+                  onChange={e => setEditModel((m: any) => ({ ...m, type: e.target.value }))}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="telegram">Telegram</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="edit-webhook">Webhook URL (Optional)</Label>
+                <Input id="edit-webhook" value={editModel.webhook_url} onChange={e => setEditModel((m: any) => ({ ...m, webhook_url: e.target.value }))} placeholder="https://your-domain.com/webhook" />
               </div>
               <div>
                 <Label htmlFor="edit-secret">Secret Key</Label>
@@ -427,36 +548,13 @@ export default function Channels() {
           )}
         </DialogContent>
       </Dialog>
-      {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Channel</DialogTitle>
-            <DialogDescription>Add a new WhatsApp channel/session.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateChannel} className="space-y-4">
-            <div>
-              <Label htmlFor="create-phone">Phone</Label>
-              <Input id="create-phone" value={createForm.phone} onChange={e => setCreateForm(f => ({ ...f, phone: e.target.value }))} placeholder="e.g. 5511900000000" required />
-            </div>
-            <div>
-              <Label htmlFor="create-secret">Secret Key</Label>
-              <Input id="create-secret" value={createForm.secret} onChange={e => setCreateForm(f => ({ ...f, secret: e.target.value }))} placeholder="THISISMYSECURETOKEN" required type="password" />
-            </div>
-            {errors.create && <div className="text-red-500 text-xs">{errors.create}</div>}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={loading}>{loading ? 'Creating...' : 'Create Channel'}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 
   return (
-    <div className="max-w-xl mx-auto py-8 space-y-8">
+    <div className="max-w-6xl mx-auto py-8 space-y-8">
       <h1 className="text-3xl font-bold mb-4">Channels: WhatsApp Session Wizard</h1>
+      <ChannelsTable />
       <Stepper />
       <Card className="p-6 space-y-4">
         {step === 0 && (
@@ -470,6 +568,22 @@ export default function Channels() {
               <Label htmlFor="secret">Secret Key</Label>
               <Input id="secret" value={model.secret} onChange={e => setModel(m => ({ ...m, secret: e.target.value }))} placeholder="THISISMYSECURETOKEN" required type="password" />
               {errors.secret && <span className="text-red-500 text-xs">Secret is required</span>}
+            </div>
+            <div>
+              <Label htmlFor="webhook">Webhook URL (Optional)</Label>
+              <Input id="webhook" value={model.webhook_url} onChange={e => setModel(m => ({ ...m, webhook_url: e.target.value }))} placeholder="https://your-domain.com/webhook" />
+            </div>
+            <div>
+              <Label htmlFor="type">Channel Type</Label>
+              <select
+                id="type"
+                value={model.type}
+                onChange={e => setModel(m => ({ ...m, type: e.target.value }))}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="whatsapp">WhatsApp</option>
+                <option value="telegram">Telegram</option>
+              </select>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="submit">Next</Button>

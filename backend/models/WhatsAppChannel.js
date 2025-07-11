@@ -5,6 +5,17 @@ const whatsAppChannelSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
+    unique: true,
+  },
+  type: {
+    type: String,
+    enum: ['whatsapp', 'telegram'],
+    default: 'whatsapp',
+    required: true,
+  },
+  webhook_url: {
+    type: String,
+    trim: true,
   },
   secret: {
     type: String,
@@ -31,8 +42,8 @@ const whatsAppChannelSchema = new mongoose.Schema({
   versionKey: false,
 });
 
-// Unique index on phone + createdBy
-whatsAppChannelSchema.index({ phone: 1, createdBy: 1 }, { unique: true });
+// Index on createdBy for user filtering
+whatsAppChannelSchema.index({ createdBy: 1 });
 
 const WhatsAppChannel = mongoose.model('WhatsAppChannel', whatsAppChannelSchema);
 

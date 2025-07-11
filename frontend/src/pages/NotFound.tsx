@@ -5,6 +5,11 @@ const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
+    // Don't log 404 errors for login page during authentication flow
+    if (location.pathname === '/login') {
+      return;
+    }
+
     console.error(
       "404 Error: User attempted to access non-existent route:",
       location.pathname

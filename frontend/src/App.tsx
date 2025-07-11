@@ -67,64 +67,20 @@ function AppContent() {
           </header>
           <main className="flex-1 p-6">
             <Routes>
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/groups" element={
-                <ProtectedRoute>
-                  <Groups />
-                </ProtectedRoute>
-              } />
-              <Route path="/workflows" element={
-                <ProtectedRoute>
-                  <Workflows />
-                </ProtectedRoute>
-              } />
-              <Route path="/filters" element={
-                <ProtectedRoute>
-                  <Filters />
-                </ProtectedRoute>
-              } />
-              <Route path="/logs" element={
-                <ProtectedRoute>
-                  <Logs />
-                </ProtectedRoute>
-              } />
-              <Route path="/settings" element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              } />
-              <Route path="/contacts" element={
-                <ProtectedRoute>
-                  <Contacts />
-                </ProtectedRoute>
-              } />
-              <Route path="/webhooks" element={
-                <ProtectedRoute>
-                  <Webhooks />
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              } />
-              <Route path="/api-tokens" element={
-                <ProtectedRoute>
-                  <ApiTokens />
-                </ProtectedRoute>
-              } />
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/groups" element={<Groups />} />
+              <Route path="/workflows" element={<Workflows />} />
+              <Route path="/filters" element={<Filters />} />
+              <Route path="/logs" element={<Logs />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/contacts" element={<Contacts />} />
+              <Route path="/webhooks" element={<Webhooks />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/api-tokens" element={<ApiTokens />} />
               <Route path="/messaging" element={<BulkMessaging />} />
-              <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
-              <Route path="/system-status" element={<ProtectedRoute><SystemStatus /></ProtectedRoute>} />
-              <Route path="/channels" element={
-                <ProtectedRoute>
-                  <Channels />
-                </ProtectedRoute>
-              } />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/system-status" element={<SystemStatus />} />
+              <Route path="/channels" element={<Channels />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

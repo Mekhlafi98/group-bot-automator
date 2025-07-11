@@ -56,9 +56,9 @@ const Dashboard = () => {
   const quickActions = [
     {
       title: "Setup Webhook",
-      description: "Configure Telegram webhook",
+      description: "Configure webhook integration",
       icon: Settings,
-      action: () => navigate('/setup'),
+      action: () => navigate('/webhooks'),
       variant: "default" as const
     },
     {

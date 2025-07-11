@@ -4,12 +4,18 @@ const messageFilterSchema = new mongoose.Schema({
     groupId: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'TelegramGroup',
-        required: true,
+        required: false,
     }],
     workflowId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Workflow',
-        required: false
+        required: false,
+        default: null
+    },
+    channelId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'WhatsAppChannel',
+        required: true,
     },
     filterName: {
         type: String,
@@ -53,6 +59,7 @@ const messageFilterSchema = new mongoose.Schema({
 // Indexes for performance
 messageFilterSchema.index({ groupId: 1 });
 messageFilterSchema.index({ workflowId: 1 });
+messageFilterSchema.index({ channelId: 1 });
 messageFilterSchema.index({ isActive: 1 });
 messageFilterSchema.index({ createdBy: 1 });
 

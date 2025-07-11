@@ -11,15 +11,19 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Plus, Edit, Trash2, Filter, MessageSquare, ToggleLeft, ToggleRight, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Filter, MessageSquare, ToggleLeft, ToggleRight, Search, MoreHorizontal, Download } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/api/api";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface MessageFilter {
   _id: string;
   groupId: string[];
-  workflowId: string;
+  workflowId?: string;
+  channelId: string;
   filterName: string;
   filterType: string;
   filterValue: string;
@@ -57,12 +61,20 @@ interface Workflow {
   isActive: boolean;
 }
 
+interface Channel {
+  _id: string;
+  phone: string;
+  type: string;
+  status: string;
+}
+
 const Filters = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingFilter, setEditingFilter] = useState<MessageFilter | null>(null);
   const [formData, setFormData] = useState<{
     groupId: string[];
     workflowId: string;
+    channelId: string;
     filterName: string;
     filterType: string;
     filterValue: string;
@@ -73,6 +85,7 @@ const Filters = () => {
   }>({
     groupId: [],
     workflowId: "",
+    channelId: "",
     filterName: "",
     filterType: "keyword",
     filterValue: "",
@@ -86,6 +99,7 @@ const Filters = () => {
   const [openSupportPopover, setOpenSupportPopover] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -94,7 +108,7 @@ const Filters = () => {
     queryKey: ['message-filters'],
     queryFn: async (): Promise<MessageFilter[]> => {
       const response = await api.get('/message-filters');
-      return response.data;
+      return Array.isArray(response.data) ? response.data : [];
     }
   });
 
@@ -103,7 +117,7 @@ const Filters = () => {
     queryKey: ['telegram-groups'],
     queryFn: async () => {
       const response = await api.get('/telegram-groups');
-      return response.data;
+      return Array.isArray(response.data) ? response.data : [];
     }
   });
 
@@ -112,7 +126,7 @@ const Filters = () => {
     queryKey: ['workflows'],
     queryFn: async (): Promise<Workflow[]> => {
       const response = await api.get('/workflows');
-      return response.data;
+      return Array.isArray(response.data) ? response.data : [];
     }
   });
 
@@ -121,18 +135,134 @@ const Filters = () => {
     queryKey: ['contacts'],
     queryFn: async () => {
       const response = await api.get('/contacts');
-      return Array.isArray(response.data) ? response.data : response.data.contacts;
+      const data = Array.isArray(response.data) ? response.data : (response.data?.contacts || []);
+      return Array.isArray(data) ? data : [];
     }
   });
 
+  // Fetch channels for autocomplete
+  const { data: channels = [], error: channelsError, isLoading: channelsLoading } = useQuery<Channel[], Error>({
+    queryKey: ['channels'],
+    queryFn: async () => {
+      const response = await api.get('/channels');
+      return Array.isArray(response.data) ? response.data : [];
+    }
+  });
+
+  // Ensure all data arrays are properly initialized
+  const safeFilters = Array.isArray(filters) ? filters : [];
+  const safeGroups = Array.isArray(groups) ? groups : [];
+  const safeWorkflows = Array.isArray(workflows) ? workflows : [];
+  const safeSupportList = Array.isArray(supportList) ? supportList : [];
+  const safeChannels = Array.isArray(channels) ? channels : [];
+
   // Filter filters based on active status and search query
-  const filteredFilters = (showActiveOnly ? filters.filter(filter => filter.isActive) : filters)
+  const filteredFilters = (showActiveOnly ? safeFilters.filter(filter => filter.isActive) : safeFilters)
     .filter(filter =>
       searchQuery === "" ||
       filter.filterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       filter.filterType.toLowerCase().includes(searchQuery.toLowerCase()) ||
       filter.filterValue.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedFilters(filteredFilters.map(filter => filter._id));
+    } else {
+      setSelectedFilters([]);
+    }
+  };
+
+  const handleSelectFilter = (filterId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedFilters(prev => [...prev, filterId]);
+    } else {
+      setSelectedFilters(prev => prev.filter(id => id !== filterId));
+    }
+  };
+
+  // Bulk actions
+  const handleBulkDelete = async () => {
+    if (selectedFilters.length === 0) return;
+
+    try {
+      await Promise.all(selectedFilters.map(id => api.delete(`/message-filters/${id}`)));
+      queryClient.invalidateQueries({ queryKey: ['message-filters'] });
+      setSelectedFilters([]);
+      toast({
+        title: "Success",
+        description: `${selectedFilters.length} filter(s) deleted successfully`,
+        variant: "default"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to delete filters",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleBulkToggleStatus = async (isActive: boolean) => {
+    if (selectedFilters.length === 0) return;
+
+    try {
+      await Promise.all(selectedFilters.map(id =>
+        api.put(`/message-filters/${id}`, { isActive })
+      ));
+      queryClient.invalidateQueries({ queryKey: ['message-filters'] });
+      setSelectedFilters([]);
+      toast({
+        title: "Success",
+        description: `${selectedFilters.length} filter(s) ${isActive ? 'activated' : 'deactivated'} successfully`,
+        variant: "default"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to update filters",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleBulkExport = () => {
+    if (selectedFilters.length === 0) return;
+
+    const selectedFilterData = filteredFilters.filter(filter =>
+      selectedFilters.includes(filter._id)
+    );
+
+    const csvContent = [
+      ['Filter Name', 'Type', 'Value', 'Priority', 'Status', 'Groups', 'Workflow', 'Channel', 'Created At'],
+      ...selectedFilterData.map(filter => [
+        filter.filterName,
+        filter.filterType,
+        filter.filterValue,
+        filter.priority,
+        filter.isActive ? 'Active' : 'Inactive',
+        filter.groupId.length,
+        safeWorkflows.find(w => w._id === filter.workflowId)?.name || 'Unknown',
+        safeChannels.find(c => c._id === filter.channelId)?.phone || 'None',
+        new Date(filter.createdAt).toLocaleDateString()
+      ])
+    ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `filters-export-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: `${selectedFilters.length} filter(s) exported successfully`,
+      variant: "default"
+    });
+  };
 
   // Create filter mutation
   const createFilterMutation = useMutation({
@@ -146,7 +276,7 @@ const Filters = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['message-filters'] });
       setIsCreateDialogOpen(false);
-      setFormData({ groupId: [], workflowId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true, support: [] });
+      setFormData({ groupId: [], workflowId: "", channelId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true, support: [] });
       toast({
         title: "Success",
         description: "Filter created successfully",
@@ -174,7 +304,7 @@ const Filters = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['message-filters'] });
       setEditingFilter(null);
-      setFormData({ groupId: [], workflowId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true, support: [] });
+      setFormData({ groupId: [], workflowId: "", channelId: "", filterName: "", filterType: "keyword", filterValue: "", priority: 0, aiPrompt: "", isActive: true, support: [] });
       toast({
         title: "Success",
         description: "Filter updated successfully",
@@ -237,14 +367,58 @@ const Filters = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingFilter) {
-      updateFilterMutation.mutate({ id: editingFilter._id, data: formData });
-    } else {
-      createFilterMutation.mutate({
-        ...formData,
-        priority: parseInt(formData.priority.toString()) || 0,
-        support: formData.support,
+
+    // Validation for required fields
+    if (!formData.channelId) {
+      toast({
+        title: 'Error',
+        description: 'Channel ID is required',
+        variant: 'destructive'
       });
+      return;
+    }
+    if (!formData.filterName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Filter Name is required',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+
+    if (!formData.filterValue.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Filter Value is required',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (formData.support.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'At least one support contact is required',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Clean the data to handle optional fields properly
+    const cleanData = {
+      ...formData,
+      priority: 0, // Default priority since field is hidden
+      support: formData.support,
+      // Convert empty strings to null for optional ObjectId fields
+      workflowId: formData.workflowId || null,
+      groupId: formData.groupId.length > 0 ? formData.groupId : [],
+    };
+
+    if (editingFilter) {
+      updateFilterMutation.mutate({ id: editingFilter._id, data: cleanData });
+    } else {
+      createFilterMutation.mutate(cleanData);
     }
   };
 
@@ -253,6 +427,7 @@ const Filters = () => {
     setFormData({
       groupId: filter.groupId,
       workflowId: filter.workflowId,
+      channelId: filter.channelId || "",
       filterName: filter.filterName,
       filterType: filter.filterType,
       filterValue: filter.filterValue,
@@ -312,20 +487,6 @@ const Filters = () => {
             Manage message filtering rules for your bot
           </p>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="showActiveOnly"
-              checked={showActiveOnly}
-              onChange={(e) => setShowActiveOnly(e.target.checked)}
-              className="rounded"
-            />
-            <Label htmlFor="showActiveOnly" className="text-sm">
-              Show Active Only
-            </Label>
-          </div>
-        </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -357,7 +518,25 @@ const Filters = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="groupId">Groups</Label>
+                <Label htmlFor="channelId">Channel ID</Label>
+                <Select
+                  value={formData.channelId}
+                  onValueChange={(value) => setFormData({ ...formData, channelId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a channel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {safeChannels.map((channel) => (
+                      <SelectItem key={channel._id} value={channel._id}>
+                        {channel.phone} ({channel.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="groupId">Groups (Optional)</Label>
                 <Popover open={openGroupPopover} onOpenChange={setOpenGroupPopover}>
                   <PopoverTrigger asChild>
                     <Button
@@ -379,7 +558,7 @@ const Filters = () => {
                       <CommandList>
                         <CommandEmpty>No groups found.</CommandEmpty>
                         <CommandGroup>
-                          {groups.map((group) => (
+                          {safeGroups.map((group) => (
                             <CommandItem
                               key={group._id}
                               value={group.title}
@@ -408,7 +587,7 @@ const Filters = () => {
                 {formData.groupId.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {formData.groupId.map((groupId) => {
-                      const group = groups.find(g => g._id === groupId);
+                      const group = safeGroups.find(g => g._id === groupId);
                       return group ? (
                         <Badge key={groupId} variant="secondary" className="text-xs">
                           {group.title}
@@ -428,7 +607,7 @@ const Filters = () => {
                 )}
               </div>
               <div>
-                <Label htmlFor="workflowId">Workflow ID</Label>
+                <Label htmlFor="workflowId">Workflow ID (Optional)</Label>
                 <Select
                   value={formData.workflowId}
                   onValueChange={(value) => setFormData({ ...formData, workflowId: value })}
@@ -437,7 +616,7 @@ const Filters = () => {
                     <SelectValue placeholder="Select a workflow" />
                   </SelectTrigger>
                   <SelectContent>
-                    {workflows.map((workflow) => (
+                    {safeWorkflows.map((workflow) => (
                       <SelectItem key={workflow._id} value={workflow._id}>
                         {workflow.name}
                       </SelectItem>
@@ -481,16 +660,6 @@ const Filters = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="priority">Priority</Label>
-                <Input
-                  id="priority"
-                  type="number"
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-                  placeholder="0"
-                />
-              </div>
-              <div>
                 <Label htmlFor="aiPrompt">AI Prompt (Optional)</Label>
                 <Input
                   id="aiPrompt"
@@ -500,7 +669,7 @@ const Filters = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="support">Support (optional)</Label>
+                <Label htmlFor="support">Support</Label>
                 <Popover open={openSupportPopover} onOpenChange={setOpenSupportPopover}>
                   <PopoverTrigger asChild>
                     <Button
@@ -522,7 +691,7 @@ const Filters = () => {
                       <CommandList>
                         <CommandEmpty>No support found.</CommandEmpty>
                         <CommandGroup>
-                          {(supportList as Support[]).map((support) => (
+                          {safeSupportList.map((support) => (
                             <CommandItem
                               key={support._id}
                               value={support.name}
@@ -551,7 +720,7 @@ const Filters = () => {
                 {formData.support.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {formData.support.map((supportId) => {
-                      const support = (supportList as Support[]).find(c => c._id === supportId);
+                      const support = safeSupportList.find(c => c._id === supportId);
                       return support ? (
                         <Badge key={supportId} variant="secondary" className="text-xs">
                           {support.name} ({support.number})
@@ -583,147 +752,211 @@ const Filters = () => {
         </Dialog>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Search filters by name, type, or value..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+      {/* Search and Filters */}
+      <div className="flex items-center justify-between space-x-4">
+        <div className="flex items-center space-x-4 flex-1">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search filters..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="showActiveOnly"
+              checked={showActiveOnly}
+              onCheckedChange={(checked) => setShowActiveOnly(checked as boolean)}
+            />
+            <Label htmlFor="showActiveOnly" className="text-sm">
+              Show Active Only
+            </Label>
+          </div>
         </div>
+
+        {/* Bulk Actions */}
+        {selectedFilters.length > 0 && (
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground">
+              {selectedFilters.length} selected
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Actions
+                  <MoreHorizontal className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Bulk Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleBulkExport}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Selected
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkToggleStatus(true)}>
+                  <ToggleLeft className="mr-2 h-4 w-4" />
+                  Activate Selected
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkToggleStatus(false)}>
+                  <ToggleRight className="mr-2 h-4 w-4" />
+                  Deactivate Selected
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleBulkDelete}
+                  className="text-red-600"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Selected
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredFilters.map((filter) => (
-          <Card key={filter._id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{filter.filterName}</CardTitle>
-                <Badge variant={filter.isActive ? "default" : "secondary"}>
-                  {filter.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-              <CardDescription>
-                {getFilterTypeLabel(filter.filterType)}: "{filter.filterValue}"
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{getFilterTypeLabel(filter.filterType)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-mono">{filter.filterValue}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Workflow: </span>
-                  {(() => {
-                    const workflow = workflows.find(w => w._id === filter.workflowId);
-                    return workflow ? (
+      {/* Data Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedFilters.length === filteredFilters.length && filteredFilters.length > 0}
+                    onCheckedChange={handleSelectAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
+                <TableHead>Filter Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Value</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Groups</TableHead>
+                <TableHead>Channel</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="w-12">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredFilters.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    No filters found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredFilters.map((filter) => (
+                  <TableRow key={filter._id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedFilters.includes(filter._id)}
+                        onCheckedChange={(checked) => handleSelectFilter(filter._id, checked as boolean)}
+                        aria-label={`Select ${filter.filterName}`}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{filter.filterName}</TableCell>
+                    <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {workflow.name}
+                        {getFilterTypeLabel(filter.filterType)}
                       </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Unknown Workflow</span>
-                    );
-                  })()}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Priority: {filter.priority}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Groups: </span>
-                  <div className="flex flex-wrap gap-1">
-                    {filter.groupId.length > 0 ? (
-                      filter.groupId.map((groupId) => {
-                        const group = groups.find(g => g._id === groupId);
-                        return group ? (
-                          <Badge key={groupId} variant="outline" className="text-xs">
-                            {group.title}
-                          </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm max-w-xs truncate">
+                      {filter.filterValue}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={filter.isActive ? "default" : "secondary"}>
+                        {filter.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {filter.groupId.length > 0 ? (
+                          filter.groupId.slice(0, 2).map((groupId) => {
+                            const group = safeGroups.find(g => g._id === groupId);
+                            return group ? (
+                              <Badge key={groupId} variant="outline" className="text-xs">
+                                {group.title}
+                              </Badge>
+                            ) : null;
+                          })
                         ) : (
-                          <Badge key={groupId} variant="outline" className="text-xs text-muted-foreground">
-                            Unknown Group
+                          <span className="text-xs text-muted-foreground">None</span>
+                        )}
+                        {filter.groupId.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{filter.groupId.length - 2}
                           </Badge>
-                        );
-                      })
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No groups assigned</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Support: </span>
-                  <div className="flex flex-wrap gap-1">
-                    {filter.support && filter.support.length > 0 ? (
-                      filter.support.map((support: any) => (
-                        <Badge key={typeof support === 'string' ? support : support._id} variant="outline" className="text-xs">
-                          {typeof support === 'string'
-                            ? (supportList as Support[]).find(c => c._id === support)?.name || 'Unknown Support'
-                            : `${support.name} (${support.number})`}
-                        </Badge>
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No support assigned</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleToggleStatus(filter._id, filter.isActive)}
-                    disabled={toggleFilterMutation.isPending}
-                  >
-                    {filter.isActive ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4" />}
-                    {filter.isActive ? "Disable" : "Enable"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEdit(filter)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Filter</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{filter.filterName}"? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDelete(filter._id)}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          Delete
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {filter.channelId ? (
+                        (() => {
+                          const channel = safeChannels.find(c => c._id === filter.channelId);
+                          return channel ? (
+                            <span className="text-sm font-mono">{channel.phone}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Unknown</span>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-xs text-muted-foreground">None</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(filter.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(filter)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleToggleStatus(filter._id, filter.isActive)}>
+                            {filter.isActive ? (
+                              <>
+                                <ToggleRight className="mr-2 h-4 w-4" />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <ToggleLeft className="mr-2 h-4 w-4" />
+                                Activate
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(filter._id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Edit Dialog */}
       <Dialog open={!!editingFilter} onOpenChange={() => setEditingFilter(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Filter</DialogTitle>
             <DialogDescription>
@@ -732,7 +965,25 @@ const Filters = () => {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="edit-groupId">Groups</Label>
+              <Label htmlFor="edit-channelId">Channel ID</Label>
+              <Select
+                value={formData.channelId}
+                onValueChange={(value) => setFormData({ ...formData, channelId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {safeChannels.map((channel) => (
+                    <SelectItem key={channel._id} value={channel._id}>
+                      {channel.phone} ({channel.type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-groupId">Groups (Optional)</Label>
               <Popover open={openGroupPopover} onOpenChange={setOpenGroupPopover}>
                 <PopoverTrigger asChild>
                   <Button
@@ -754,7 +1005,7 @@ const Filters = () => {
                     <CommandList>
                       <CommandEmpty>No groups found.</CommandEmpty>
                       <CommandGroup>
-                        {groups.map((group) => (
+                        {safeGroups.map((group) => (
                           <CommandItem
                             key={group._id}
                             value={group.title}
@@ -783,7 +1034,7 @@ const Filters = () => {
               {formData.groupId.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {formData.groupId.map((groupId) => {
-                    const group = groups.find(g => g._id === groupId);
+                    const group = safeGroups.find(g => g._id === groupId);
                     return group ? (
                       <Badge key={groupId} variant="secondary" className="text-xs">
                         {group.title}
@@ -803,7 +1054,7 @@ const Filters = () => {
               )}
             </div>
             <div>
-              <Label htmlFor="edit-workflowId">Workflow ID</Label>
+              <Label htmlFor="edit-workflowId">Workflow ID (Optional)</Label>
               <Select
                 value={formData.workflowId}
                 onValueChange={(value) => setFormData({ ...formData, workflowId: value })}
@@ -812,7 +1063,7 @@ const Filters = () => {
                   <SelectValue placeholder="Select a workflow" />
                 </SelectTrigger>
                 <SelectContent>
-                  {workflows.map((workflow) => (
+                  {safeWorkflows.map((workflow) => (
                     <SelectItem key={workflow._id} value={workflow._id}>
                       {workflow.name}
                     </SelectItem>
@@ -856,16 +1107,6 @@ const Filters = () => {
               />
             </div>
             <div>
-              <Label htmlFor="edit-priority">Priority</Label>
-              <Input
-                id="edit-priority"
-                type="number"
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-                placeholder="0"
-              />
-            </div>
-            <div>
               <Label htmlFor="edit-aiPrompt">AI Prompt (Optional)</Label>
               <Input
                 id="edit-aiPrompt"
@@ -875,7 +1116,7 @@ const Filters = () => {
               />
             </div>
             <div>
-              <Label htmlFor="edit-support">Support (optional)</Label>
+              <Label htmlFor="edit-support">Support</Label>
               <Popover open={openSupportPopover} onOpenChange={setOpenSupportPopover}>
                 <PopoverTrigger asChild>
                   <Button
@@ -897,7 +1138,7 @@ const Filters = () => {
                     <CommandList>
                       <CommandEmpty>No support found.</CommandEmpty>
                       <CommandGroup>
-                        {(supportList as Support[]).map((support) => (
+                        {safeSupportList.map((support) => (
                           <CommandItem
                             key={support._id}
                             value={support.name}
@@ -926,7 +1167,7 @@ const Filters = () => {
               {formData.support.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {formData.support.map((supportId) => {
-                    const support = (supportList as Support[]).find(c => c._id === supportId);
+                    const support = safeSupportList.find(c => c._id === supportId);
                     return support ? (
                       <Badge key={supportId} variant="secondary" className="text-xs">
                         {support.name} ({support.number})
@@ -966,7 +1207,7 @@ const Filters = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 };
 

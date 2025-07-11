@@ -10,6 +10,7 @@ async function getAllFilters(req, res) {
         })
             .populate('groupId', 'title chatId')
             .populate('workflowId', 'name workflowId')
+            .populate('channelId', 'phone type')
             .populate('support', 'name number')
             .sort({ createdAt: -1 });
 
@@ -30,6 +31,7 @@ async function getFilterById(req, res) {
         })
             .populate('groupId', 'title chatId')
             .populate('workflowId', 'name workflowId')
+            .populate('channelId', 'phone type')
             .populate('support', 'name number');
 
         if (!filter) {
@@ -63,6 +65,7 @@ async function getFiltersByGroup(req, res) {
             createdBy: req.user._id
         })
             .populate('workflowId', 'name workflowId')
+            .populate('channelId', 'phone type')
             .populate('support', 'name number')
             .sort({ createdAt: -1 });
 
@@ -76,32 +79,49 @@ async function getFiltersByGroup(req, res) {
 // Create new filter
 async function createFilter(req, res) {
     try {
-        const { groupId, workflowId, filterName, filterType, filterValue, priority, aiPrompt, support } = req.body;
+        const { groupId, workflowId, channelId, filterName, filterType, filterValue, priority, aiPrompt, support } = req.body;
 
-        if (!groupId || !workflowId || !filterName || !filterType || !filterValue) {
+        if (!channelId || !filterName || !filterType || !filterValue) {
             return res.status(400).json({
-                message: 'Group ID, Workflow ID, Filter Name, Filter Type, and Filter Value are required'
+                message: 'Channel ID, Filter Name, Filter Type, and Filter Value are required'
             });
         }
 
-        // Verify the group belongs to the current user
-        const group = await TelegramGroup.findOne({
-            _id: { $in: groupId },
-            createdBy: req.user._id
-        });
+        // Verify the group belongs to the current user if provided
+        if (groupId && groupId.length > 0) {
+            const group = await TelegramGroup.findOne({
+                _id: { $in: groupId },
+                createdBy: req.user._id
+            });
 
-        if (!group) {
-            return res.status(400).json({ message: 'One or more groups not found or not accessible' });
+            if (!group) {
+                return res.status(400).json({ message: 'One or more groups not found or not accessible' });
+            }
         }
 
-        // Verify the workflow belongs to the current user
-        const workflow = await Workflow.findOne({
-            _id: workflowId,
-            createdBy: req.user.id
-        });
+        // Verify the workflow belongs to the current user if provided
+        if (workflowId) {
+            const workflow = await Workflow.findOne({
+                _id: workflowId,
+                createdBy: req.user.id
+            });
 
-        if (!workflow) {
-            return res.status(400).json({ message: 'Workflow not found or not accessible' });
+            if (!workflow) {
+                return res.status(400).json({ message: 'Workflow not found or not accessible' });
+            }
+        }
+
+        // Verify the channel belongs to the current user if provided
+        if (channelId) {
+            const WhatsAppChannel = require('../models/WhatsAppChannel');
+            const channel = await WhatsAppChannel.findOne({
+                _id: channelId,
+                createdBy: req.user._id
+            });
+
+            if (!channel) {
+                return res.status(400).json({ message: 'Channel not found or not accessible' });
+            }
         }
 
         // Validate support if provided
@@ -118,13 +138,14 @@ async function createFilter(req, res) {
         }
 
         const filter = new MessageFilter({
-            groupId,
-            workflowId,
+            groupId: groupId || [],
+            workflowId: workflowId || null,
+            channelId,
             filterName,
             filterType,
             filterValue,
             priority: priority || 0,
-            aiPrompt,
+            aiPrompt: aiPrompt || null,
             support: validSupport,
             createdBy: req.user._id,
         });
@@ -134,6 +155,7 @@ async function createFilter(req, res) {
         const populatedFilter = await MessageFilter.findById(filter._id)
             .populate('groupId', 'title chatId')
             .populate('workflowId', 'name workflowId')
+            .populate('channelId', 'phone type')
             .populate('support', 'name number');
 
         res.status(201).json(populatedFilter);
@@ -147,7 +169,7 @@ async function createFilter(req, res) {
 async function updateFilter(req, res) {
     try {
         const { id } = req.params;
-        const { groupId, workflowId, filterName, filterType, filterValue, isActive, priority, aiPrompt, support } = req.body;
+        const { groupId, workflowId, channelId, filterName, filterType, filterValue, isActive, priority, aiPrompt, support } = req.body;
 
         const filter = await MessageFilter.findOne({
             _id: id,
@@ -184,6 +206,22 @@ async function updateFilter(req, res) {
             filter.workflowId = workflowId;
         }
 
+        // If updating channelId, verify the channel belongs to the current user
+        if (channelId !== undefined) {
+            if (channelId) {
+                const WhatsAppChannel = require('../models/WhatsAppChannel');
+                const channel = await WhatsAppChannel.findOne({
+                    _id: channelId,
+                    createdBy: req.user._id
+                });
+
+                if (!channel) {
+                    return res.status(400).json({ message: 'Channel not found or not accessible' });
+                }
+            }
+            filter.channelId = channelId;
+        }
+
         if (filterName !== undefined) filter.filterName = filterName;
         if (filterType !== undefined) filter.filterType = filterType;
         if (filterValue !== undefined) filter.filterValue = filterValue;
@@ -211,6 +249,7 @@ async function updateFilter(req, res) {
         const populatedFilter = await MessageFilter.findById(filter._id)
             .populate('groupId', 'title chatId')
             .populate('workflowId', 'name workflowId')
+            .populate('channelId', 'phone type')
             .populate('support', 'name number');
 
         res.status(200).json(populatedFilter);

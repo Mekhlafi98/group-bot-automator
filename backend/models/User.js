@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const { validatePassword, isPasswordHash } = require('../utils/password.js');
-const {randomUUID} = require("crypto");
+const { randomUUID } = require("crypto");
 
 const schema = new mongoose.Schema({
   email: {
@@ -10,6 +10,10 @@ const schema = new mongoose.Schema({
     index: true,
     unique: true,
     lowercase: true,
+  },
+  name: {
+    type: String,
+    default: '',
   },
   password: {
     type: String,

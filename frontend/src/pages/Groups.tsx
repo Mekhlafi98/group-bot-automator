@@ -31,6 +31,7 @@ interface TelegramGroup {
   type: string;
   isActive: boolean;
   contacts?: string[];
+  welcome_message?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,7 +44,8 @@ const Groups = () => {
     title: "",
     type: "group",
     isActive: true,
-    contacts: [] as string[]
+    contacts: [] as string[],
+    welcome_message: "",
   });
   const [openContactsPopover, setOpenContactsPopover] = useState(false);
   const [openEditContactsPopover, setOpenEditContactsPopover] = useState(false);
@@ -91,7 +93,7 @@ const Groups = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telegram-groups'] });
       setIsCreateDialogOpen(false);
-      setFormData({ chatId: "", title: "", type: "group", isActive: true, contacts: [] });
+      setFormData({ chatId: "", title: "", type: "group", isActive: true, contacts: [], welcome_message: "" });
       toast({
         title: "Success",
         description: "Group created successfully",
@@ -116,7 +118,7 @@ const Groups = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telegram-groups'] });
       setEditingGroup(null);
-      setFormData({ chatId: "", title: "", type: "group", isActive: true, contacts: [] });
+      setFormData({ chatId: "", title: "", type: "group", isActive: true, contacts: [], welcome_message: "" });
       toast({
         title: "Success",
         description: "Group updated successfully",
@@ -170,7 +172,8 @@ const Groups = () => {
       title: group.title,
       type: group.type,
       isActive: group.isActive,
-      contacts: group.contacts || []
+      contacts: group.contacts || [],
+      welcome_message: group.welcome_message || "",
     });
   };
 
@@ -345,6 +348,16 @@ const Groups = () => {
                   </div>
                 )}
               </div>
+              <div>
+                <Label htmlFor="welcome_message">Welcome Message (Optional)</Label>
+                <textarea
+                  id="welcome_message"
+                  value={formData.welcome_message}
+                  onChange={(e) => setFormData({ ...formData, welcome_message: e.target.value })}
+                  placeholder="Enter a welcome message for new members..."
+                  className="w-full p-2 border rounded-md min-h-[80px] resize-vertical"
+                />
+              </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
@@ -393,6 +406,12 @@ const Groups = () => {
                   <MessageSquare className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">Chat ID: {group.chatId}</span>
                 </div>
+                {group.welcome_message && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Welcome Message:</span>
+                    <span className="text-sm text-gray-600">{group.welcome_message}</span>
+                  </div>
+                )}
                 {group.contacts && group.contacts.length > 0 && (
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
@@ -561,6 +580,16 @@ const Groups = () => {
                   })}
                 </div>
               )}
+            </div>
+            <div>
+              <Label htmlFor="edit-welcome_message">Welcome Message (Optional)</Label>
+              <textarea
+                id="edit-welcome_message"
+                value={formData.welcome_message}
+                onChange={(e) => setFormData({ ...formData, welcome_message: e.target.value })}
+                placeholder="Enter a welcome message for new members..."
+                className="w-full p-2 border rounded-md min-h-[80px] resize-vertical"
+              />
             </div>
             <div className="flex items-center space-x-2">
               <input
